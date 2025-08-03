@@ -1,20 +1,25 @@
 #include<sys/socket.h> // for core socket functions
-#include<stdlib.h>
+//#include<stdlib.h> // does not need as of now will use later for memory
 #include<stdio.h>
 #include<netinet/in.h> // for sockaddr_in struct
 #include<unistd.h> // for close function
 
+#define SUCCESS 0
+#define FAILURE -1
+
+#define SERVER_PORT 8080
+
 int main(int argc, char *argv[])
 {
-  int server_socket;
-  struct sockaddr_in server_addr;
+  int server_socket, client_socket, c;
+  struct sockaddr_in server_addr, client_addr;
   // 1. creating a socket
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
   if (server_socket == -1)
   {
     perror("Socket creation failed");
-    return EXIT_FAILURE;
+    return FAILURE;
   }
   else
   {
@@ -25,19 +30,52 @@ int main(int argc, char *argv[])
   // 2. assigning values to the server_addr
 
   server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(8080);
-  server_addr.sin_addr.s_addr = INADDR_ANY; // because we are not concern about the address connection is going to be made on
+  server_addr.sin_port = htons(SERVER_PORT);
+  server_addr.sin_addr.s_addr = htons(INADDR_ANY); // because we are not concern about the address connection is going to be made on
   
+  printf(" server addr port: %d\n", server_addr.sin_port);
+  printf("server address family: %d\n", server_addr.sin_family);
+  printf("server address: %d\n", server_addr.sin_addr.s_addr);
+
   // 3. binding to a port
   
   if (bind(server_socket,  (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1  )
   {
     perror("Unable to bind the socket");
     close(server_socket);
-    return EXIT_FAILURE;
+    return FAILURE;
+  } else 
+  {
+    puts("Binding successfully ");
   }
 
-  listen(server_socket, 3);
+// 4. Listening to the clients
+ 
+  if( listen(server_socket, 3) == -1) 
+  {
+    perror("Socket listening failed");
+    return FAILURE;
+  } else
+  {
+    printf("Socket listen successfully\n");
+  }
 
-  return EXIT_SUCCESS;
+
+  while(1) 
+  {
+  
+  // 5. accepting the client connections
+
+  puts("waiting for incoming connections...");
+  c = sizeof(struct sockaddr_in);
+  // LOL was connecting the accept with client_socket thats why it was running continuously and giving error, finally understood how stupid I am
+  client_socket = accept(server_socket, (struct sockaddr *)&client_addr, (socklen_t *)&c);
+  if (client_socket == -1)
+  {
+    perror("accept failed");
+    return FAILURE;
+  } 
+  }
+
+  return SUCCESS;
 }
