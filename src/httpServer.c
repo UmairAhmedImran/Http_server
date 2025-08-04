@@ -1,6 +1,7 @@
 #include<sys/socket.h> // for core socket functions
 //#include<stdlib.h> // does not need as of now will use later for memory
 #include<stdio.h>
+#include<string.h>
 #include<netinet/in.h> // for sockaddr_in struct
 #include<unistd.h> // for close function
 
@@ -13,6 +14,8 @@ int main(int argc, char *argv[])
 {
   int server_socket, client_socket, c;
   struct sockaddr_in server_addr, client_addr;
+  char *buffer = "Hello from server";
+
   // 1. creating a socket
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -75,6 +78,18 @@ int main(int argc, char *argv[])
     perror("accept failed");
     return FAILURE;
   } 
+
+  ssize_t bytes_send = send(client_socket, buffer, strlen(buffer), 0);
+
+  if (bytes_send == -1)
+  {
+    perror("send failed");
+  } else {
+    printf("Sent %zd bytes to client.\n", bytes_send);
+  }
+
+  close(client_socket);
+ 
   }
 
   return SUCCESS;
