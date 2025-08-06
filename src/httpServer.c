@@ -7,15 +7,16 @@
 
 #define SUCCESS 0
 #define FAILURE -1
-
+#define BUFFER_SIZE 4096
 #define SERVER_PORT 8080
 
 int main(int argc, char *argv[])
 {
   int server_socket, client_socket, c;
   struct sockaddr_in server_addr, client_addr;
-  char *buffer = "Hello from server";
-
+  char *buffer = "Hello from server\n";
+  char recv_buffer[BUFFER_SIZE] = {0};
+  ssize_t bytes_send, bytes_recv;
   // 1. creating a socket
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -45,6 +46,7 @@ int main(int argc, char *argv[])
   if (bind(server_socket,  (struct sockaddr *)&server_addr, sizeof(server_addr)) == -1  )
   {
     perror("Unable to bind the socket");
+    printf("%d", SERVER_PORT );
     close(server_socket);
     return FAILURE;
   } else 
@@ -79,7 +81,7 @@ int main(int argc, char *argv[])
     return FAILURE;
   } 
 
-  ssize_t bytes_send = send(client_socket, buffer, strlen(buffer), 0);
+  bytes_send = send(client_socket, buffer, strlen(buffer), 0);
 
   if (bytes_send == -1)
   {
@@ -88,8 +90,17 @@ int main(int argc, char *argv[])
     printf("Sent %zd bytes to client.\n", bytes_send);
   }
 
+  bytes_recv = recv(client_socket, recv_buffer, BUFFER_SIZE,  0);
+
+  if (bytes_recv == -1) 
+  {
+    perror("recv failed");
+  } else {
+    printf("data: %s\n", recv_buffer);
+  }
+
   close(client_socket);
- 
+  //close(server_socket);
   }
 
   return SUCCESS;
