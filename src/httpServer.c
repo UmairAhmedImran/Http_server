@@ -14,7 +14,11 @@ int main(int argc, char *argv[])
 {
   int server_socket, client_socket, c;
   struct sockaddr_in server_addr, client_addr;
-  char *buffer = "Hello from server\n";
+  char *buffer = 
+    "HTTP/1.1 200 OK\r\n"
+    "Content-Type: text/plain\r\n"
+    "Content-Lenght: 18\r\n\r\n"
+    "Hello from server\n";
   char recv_buffer[BUFFER_SIZE] = {0};
   ssize_t bytes_send, bytes_recv;
   // 1. creating a socket
