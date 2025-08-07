@@ -4,6 +4,7 @@
 #include<string.h>
 #include<netinet/in.h> // for sockaddr_in struct
 #include<unistd.h> // for close function
+#include<regex.h>
 
 #define SUCCESS 0
 #define FAILURE -1
@@ -18,9 +19,11 @@ int main(int argc, char *argv[])
     "HTTP/1.1 200 OK\r\n"
     "Content-Type: text/plain\r\n"
     "Content-Lenght: 18\r\n\r\n"
-    "Hello from server\n";
+    "{message: ok}\n";
   char recv_buffer[BUFFER_SIZE] = {0};
   ssize_t bytes_send, bytes_recv;
+  char *ptr_client_data_by_line = strtok(bytes_recv, "\n"); 
+
   // 1. creating a socket
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -102,6 +105,8 @@ int main(int argc, char *argv[])
   } else {
     printf("data: %s\n", recv_buffer);
   }
+  
+  
 
   close(client_socket);
   //close(server_socket);
