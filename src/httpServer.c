@@ -22,8 +22,7 @@ int main(int argc, char *argv[])
     "{message: ok}\n";
   char recv_buffer[BUFFER_SIZE] = {0};
   ssize_t bytes_send, bytes_recv;
-  char *ptr_client_data_by_line = strtok(bytes_recv, "\n"); 
-
+  
   // 1. creating a socket
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -103,7 +102,13 @@ int main(int argc, char *argv[])
   {
     perror("recv failed");
   } else {
-    printf("data: %s\n", recv_buffer);
+    printf("%s\n", recv_buffer);
+    char *ptr_client_data_by_line = strtok(recv_buffer, "\n"); // usign strtok as of now but should use strtok_r for multithreading later
+    while (ptr_client_data_by_line != NULL)
+    {
+    printf("formattting the data --------  %s\n", ptr_client_data_by_line);
+    ptr_client_data_by_line = strtok(NULL, "\n");
+    }
   }
   
   
