@@ -9,7 +9,7 @@
 #define SUCCESS 0
 #define FAILURE -1
 #define BUFFER_SIZE 4096
-#define SERVER_PORT 8080
+#define SERVER_PORT 8000
 
 int main(int argc, char *argv[])
 {
@@ -102,13 +102,16 @@ int main(int argc, char *argv[])
   {
     perror("recv failed");
   } else {
-    printf("%s\n", recv_buffer);
-    char *ptr_client_data_by_line = strtok(recv_buffer, "\n"); // usign strtok as of now but should use strtok_r for multithreading later
-    while (ptr_client_data_by_line != NULL)
-    {
-    printf("formattting the data --------  %s\n", ptr_client_data_by_line);
-    ptr_client_data_by_line = strtok(NULL, "\n");
-    }
+   // printf("%s\n", recv_buffer);
+    int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
+    //while (ptr_client_data_by_line != NULL)
+    //{
+    //printf("formattting the data --------  %s\n", ptr_client_data_by_line);
+    //ptr_client_data_by_line = strtok(NULL, " ");
+    //}
+    printf("position: %d\n", position_of_end_of_headers);
+    
+   // printf("request line and headers: %s\n", recv_buffer[position_of_end_of_headers]); // completely wrong have to do apply strncpy or putchar for this
   }
   
   
