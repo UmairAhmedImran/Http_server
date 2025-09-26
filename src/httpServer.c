@@ -18,7 +18,7 @@ int main(int argc, char *argv[])
   char *buffer = 
     "HTTP/1.1 200 OK\r\n"
     "Content-Type: text/plain\r\n"
-    "Content-Lenght: 18\r\n\r\n"
+    "Content-Lenght: 18\r\r\n\n"
     "{message: ok}\n";
   char recv_buffer[BUFFER_SIZE] = {0};
   ssize_t bytes_send, bytes_recv;
@@ -102,7 +102,7 @@ int main(int argc, char *argv[])
   {
     perror("recv failed");
   } else {
-   // printf("%s\n", recv_buffer);
+   //printf("%s\n", recv_buffer);
     int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
     //while (ptr_client_data_by_line != NULL)
     //{
