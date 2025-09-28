@@ -5,15 +5,43 @@
 #include<netinet/in.h> // for sockaddr_in struct
 #include<unistd.h> // for close function
 #include<regex.h>
+#include<stdbool.h> 
 
 #define SUCCESS 0
 #define FAILURE -1
 #define BUFFER_SIZE 4096
 #define SERVER_PORT 8000
 
+struct Request {
+  char method[16];
+  char path[256];
+  char version[16];
+
+  // Headers
+  struct Header {
+    char key[50];
+    char value[256];
+  } headers[50];
+
+  int header_count; // actually passed headers
+ 
+  char *body;
+};
+
+
 int main(int argc, char *argv[])
 {
+  // taget variables to find out
+  char target_colon = ':';
+  char target_empty_line[] = ""; 
+
+  // booleans to find out the position of client requests
+  bool in_header = true; 
+  bool in_body = false; 
+
+  // socket variables
   int server_socket, client_socket, c;
+  int line_no = 0;
   struct sockaddr_in server_addr, client_addr;
   char *buffer = 
     "HTTP/1.1 200 OK\r\n"
@@ -22,7 +50,7 @@ int main(int argc, char *argv[])
     "{message: ok}\n";
   char recv_buffer[BUFFER_SIZE] = {0};
   ssize_t bytes_send, bytes_recv;
-  
+
   // 1. creating a socket
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -102,14 +130,25 @@ int main(int argc, char *argv[])
   {
     perror("recv failed");
   } else {
-   //printf("%s\n", recv_buffer);
-    int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
-    //while (ptr_client_data_by_line != NULL)
-    //{
-    //printf("formattting the data --------  %s\n", ptr_client_data_by_line);
-    //ptr_client_data_by_line = strtok(NULL, " ");
-    //}
-    printf("position: %d\n", position_of_end_of_headers);
+    printf("%s\n", recv_buffer);
+    //int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
+    char *split_by_strtok = strtok(recv_buffer, "\n");
+
+   // char *ptr_client_data_by_line = strtok(recv_buffer, "\n");
+
+    while (split_by_strtok != NULL)
+    {
+      if (line_no == 0)
+      {
+         split_by_strtok = strtok(NULL, " ");
+      } 
+      //else if () 
+      //{
+        
+      //}
+      line_no += 1;
+    }
+   //printf("position: %d\n", position_of_end_of_headers);
     
    // printf("request line and headers: %s\n", recv_buffer[position_of_end_of_headers]); // completely wrong have to do apply strncpy or putchar for this
   }
