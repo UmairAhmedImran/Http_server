@@ -31,6 +31,8 @@ struct Request {
 
 int main(int argc, char *argv[])
 {
+  // Request struct
+  struct Request request_struct;
   // taget variables to find out
   char target_colon = ':';
   char target_empty_line[] = ""; 
@@ -140,7 +142,12 @@ int main(int argc, char *argv[])
     {
       if (line_no == 0)
       {
-         split_by_strtok = strtok(NULL, " ");
+         char *split_by_spaces = strtok(split_by_strtok, " ");
+         while (split_by_spaces != NULL)
+         {
+            //request_struct
+            printf("%s", split_by_spaces);
+         }
       } 
       //else if () 
       //{
