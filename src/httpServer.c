@@ -140,20 +140,31 @@ int main(int argc, char *argv[])
 
     while (split_by_strtok != NULL)
     {
-      if (line_no == 0)
+      split_by_strtok = strtok(NULL, "\n");
+      if (split_by_strtok != NULL)
       {
-         char *split_by_spaces = strtok(split_by_strtok, " ");
-         while (split_by_spaces != NULL)
-         {
-            //request_struct
-            printf("%s", split_by_spaces);
-         }
-      } 
+        printf("printing the line");
+        if (line_no == 0)
+        {
+          char *split_by_spaces = strtok(split_by_strtok, " ");
+          while (split_by_spaces != NULL)
+            {
+              split_by_spaces = strtok(NULL, " ");
+              if (split_by_spaces != NULL)
+              {
+                //request_struct
+                printf("splitting by spaces %s", split_by_spaces);
+                
+              }
+            }
+          } 
       //else if () 
       //{
         
       //}
-      line_no += 1;
+        line_no += 1;
+      
+      }
     }
    //printf("position: %d\n", position_of_end_of_headers);
     
