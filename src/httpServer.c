@@ -132,18 +132,20 @@ int main(int argc, char *argv[])
   {
     perror("recv failed");
   } else {
-    printf("%s\n", recv_buffer);
+    printf("RECV BUFFER: \n %s", recv_buffer);
+    printf("\n ----------RECV BUFFER END----------\n");
     //int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
     char *split_by_strtok = strtok(recv_buffer, "\n");
 
-   // char *ptr_client_data_by_line = strtok(recv_buffer, "\n");
+ //   char *ptr_client_data_by_line = strtok(recv_buffer, "\n");
 
     while (split_by_strtok != NULL)
     {
+      printf("\nprinting the line\n %s", split_by_strtok);
       split_by_strtok = strtok(NULL, "\n");
       if (split_by_strtok != NULL)
       {
-        printf("printing the line");
+        printf("\nprinting the line\n %s", split_by_strtok);
         if (line_no == 0)
         {
           char *split_by_spaces = strtok(split_by_strtok, " ");
@@ -153,15 +155,15 @@ int main(int argc, char *argv[])
               if (split_by_spaces != NULL)
               {
                 //request_struct
-                printf("splitting by spaces %s", split_by_spaces);
+                printf("\n splitting by spaces %s \n", split_by_spaces);
                 
               }
             }
           } 
-      //else if () 
-      //{
-        
-      //}
+   //   //else if () 
+   //   //{
+   //     
+   //   //}
         line_no += 1;
       
       }
