@@ -160,13 +160,24 @@ int main(int argc, char *argv[])
               }
             }
           } 
-   //   //else if () 
-   //   //{
-   //     
-   //   //}
-        line_no += 1;
+      
+      if (in_header && line_no > 1) 
+      {
+        char *split_by_colon = strtok(split_by_strtok, ":");
+        while(split_by_colon != NULL)
+        {
+          split_by_colon = strtok(NULL, ":");
+          if (split_by_colon != NULL)
+          {
+            printf("\n Splitting by colon: %s\n", split_by_colon);
+          }
+        }
+      }
+      
       
       }
+
+       line_no += 1;
     }
    //printf("position: %d\n", position_of_end_of_headers);
     
@@ -178,6 +189,7 @@ int main(int argc, char *argv[])
   close(client_socket);
   //close(server_socket);
   }
+
 
   return SUCCESS;
 }
