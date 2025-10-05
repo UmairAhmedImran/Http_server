@@ -53,6 +53,10 @@ int main(int argc, char *argv[])
   char recv_buffer[BUFFER_SIZE] = {0};
   ssize_t bytes_send, bytes_recv;
 
+  // save pointer for strtok_r
+  char *saveptr_outer, *saveptr_inner;
+
+
   // 1. creating a socket
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
 
@@ -135,23 +139,23 @@ int main(int argc, char *argv[])
     printf("RECV BUFFER: \n %s", recv_buffer);
     printf("\n ----------RECV BUFFER END----------\n");
     //int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
-    char *split_by_strtok = strtok(recv_buffer, "\n");
+    char *split_by_strtok = strtok_r(recv_buffer, "\n", &saveptr_outer);
 
  //   char *ptr_client_data_by_line = strtok(recv_buffer, "\n");
 
     while (split_by_strtok != NULL)
     {
       printf("\nprinting the line\n %s", split_by_strtok);
-      split_by_strtok = strtok(NULL, "\n");
+      split_by_strtok = strtok_r(NULL, "\n", &saveptr_outer);
       if (split_by_strtok != NULL)
       {
         printf("\nprinting the line\n %s", split_by_strtok);
         if (line_no == 0)
         {
-          char *split_by_spaces = strtok(split_by_strtok, " ");
+          char *split_by_spaces = strtok_r(split_by_strtok, " ", &saveptr_inner);
           while (split_by_spaces != NULL)
             {
-              split_by_spaces = strtok(NULL, " ");
+              split_by_spaces = strtok_r(NULL, " ", &saveptr_inner);
               if (split_by_spaces != NULL)
               {
                 //request_struct
