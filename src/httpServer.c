@@ -1,5 +1,5 @@
 #include<sys/socket.h> // for core socket functions
-//#include<stdlib.h> // does not need as of now will use later for memory
+#include<stdlib.h> // does not need as of now will use later for memory
 #include<stdio.h>
 #include<string.h>
 #include<netinet/in.h> // for sockaddr_in struct
@@ -12,27 +12,80 @@
 #define BUFFER_SIZE 4096
 #define SERVER_PORT 8000
 
-struct Request {
-  char method[16];
-  char path[256];
-  char version[16];
-
-  // Headers
-  struct Header {
+struct Header {
     char key[50];
     char value[256];
-  } headers[50];
-
-  int header_count; // actually passed headers
- 
-  char *body;
 };
+
+struct Request {
+    char method[16];
+    char path[256];
+    char version[16];
+    struct Header headers[50];
+    int header_count;
+    char *body;
+};
+
+void parse_http_request(char *recv_buffer, struct Request *req) {
+    char *saveptr_outer, *saveptr_inner;
+    char *line = strtok_r(recv_buffer, "\n", &saveptr_outer);
+    int line_no = 0;
+    int in_headers = 1;
+
+    req->header_count = 0;
+    req->body = NULL;
+
+    while (line != NULL) {
+        // Remove trailing \r if present
+        line[strcspn(line, "\r")] = 0;
+
+        if (strlen(line) == 0) {
+            // Empty line → headers ended, next lines are body
+            in_headers = 0;
+            line = strtok_r(NULL, "", &saveptr_outer); // get the rest as body
+            if (line && strlen(line) > 0) {
+                req->body = strdup(line);
+            }
+            break;
+        }
+
+        if (line_no == 0) {
+            // Parse request line: METHOD PATH VERSION
+            char *token = strtok_r(line, " ", &saveptr_inner);
+            if (token) strncpy(req->method, token, sizeof(req->method));
+            token = strtok_r(NULL, " ", &saveptr_inner);
+            if (token) strncpy(req->path, token, sizeof(req->path));
+            token = strtok_r(NULL, " ", &saveptr_inner);
+            if (token) strncpy(req->version, token, sizeof(req->version));
+        } 
+        else if (in_headers) {
+            // Parse headers: key: value
+            char *colon_pos = strchr(line, ':');
+            if (colon_pos) {
+                int index = req->header_count;
+                size_t key_len = colon_pos - line;
+                strncpy(req->headers[index].key, line, key_len);
+                req->headers[index].key[key_len] = '\0';
+
+                // skip ": " space
+                char *value = colon_pos + 1;
+                while (*value == ' ') value++;
+                strncpy(req->headers[index].value, value, sizeof(req->headers[index].value));
+                req->header_count++;
+            }
+        }
+
+        line_no++;
+        line = strtok_r(NULL, "\n", &saveptr_outer);
+    }
+}
+
 
 
 int main(int argc, char *argv[])
 {
   // Request struct
-  struct Request request_struct;
+  //struct Request request_struct;
   // taget variables to find out
   char target_colon = ':';
   char target_empty_line[] = ""; 
@@ -136,53 +189,68 @@ int main(int argc, char *argv[])
   {
     perror("recv failed");
   } else {
-    printf("RECV BUFFER: \n %s", recv_buffer);
-    printf("\n ----------RECV BUFFER END----------\n");
-    //int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
-    char *split_by_strtok = strtok_r(recv_buffer, "\n", &saveptr_outer);
+    struct Request req;
+    parse_http_request(recv_buffer, &req);
 
- //   char *ptr_client_data_by_line = strtok(recv_buffer, "\n");
-
-    while (split_by_strtok != NULL)
-    {
-      printf("\nprinting the line\n %s", split_by_strtok);
-      split_by_strtok = strtok_r(NULL, "\n", &saveptr_outer);
-      if (split_by_strtok != NULL)
-      {
-        printf("\nprinting the line\n %s", split_by_strtok);
-        if (line_no == 0)
-        {
-          char *split_by_spaces = strtok_r(split_by_strtok, " ", &saveptr_inner);
-          while (split_by_spaces != NULL)
-            {
-              split_by_spaces = strtok_r(NULL, " ", &saveptr_inner);
-              if (split_by_spaces != NULL)
-              {
-                //request_struct
-                printf("\n splitting by spaces %s \n", split_by_spaces);
-                
-              }
-            }
-          } 
-      
-      if (in_header && line_no > 1) 
-      {
-        char *split_by_colon = strtok(split_by_strtok, ":");
-        while(split_by_colon != NULL)
-        {
-          split_by_colon = strtok(NULL, ":");
-          if (split_by_colon != NULL)
-          {
-            printf("\n Splitting by colon: %s\n", split_by_colon);
-          }
-        }
-      }
-      
-      
-      }
-
-       line_no += 1;
+    // Debug print
+    printf("Method: %s\n", req.method);
+    printf("Path: %s\n", req.path);
+    printf("Version: %s\n", req.version);
+    printf("\nHeaders:\n");
+    for (int i = 0; i < req.header_count; i++) {
+        printf("%s: %s\n", req.headers[i].key, req.headers[i].value);
     }
+    printf("\nBody:\n%s\n", req.body ? req.body : "(none)");
+
+    free(req.body);
+    
+    //printf("RECV BUFFER: \n %s", recv_buffer);
+    //printf("\n ----------RECV BUFFER END----------\n");
+    ////int position_of_end_of_headers = strcspn(recv_buffer, "\r\r\n\n"); // usign strtok as of now but should use strtok_r for multithreading later
+    //char *split_by_strtok = strtok_r(recv_buffer, "\n", &saveptr_outer);
+
+ // //  char *ptr_client_data_by_line = strtok(recv_buffer, "\n");
+
+    //while (split_by_strtok != NULL)
+    //{
+    //  printf("\nprinting the line\n %s", split_by_strtok);
+    //  split_by_strtok = strtok_r(NULL, "\n", &saveptr_outer);
+    //  if (split_by_strtok != NULL)
+    //  {
+    //    printf("\nprinting the line\n %s", split_by_strtok);
+    //    if (line_no == 0)
+    //    {
+    //      char *split_by_spaces = strtok_r(split_by_strtok, " ", &saveptr_inner);
+    //      while (split_by_spaces != NULL)
+    //        {
+    //          split_by_spaces = strtok_r(NULL, " ", &saveptr_inner);
+    //          if (split_by_spaces != NULL)
+    //          {
+    //            //request_struct
+    //            printf("\n splitting by spaces %s \n", split_by_spaces);
+    //            
+    //          }
+    //        }
+    //      } 
+    //  
+    //  if (in_header && line_no > 1) 
+    //  {
+    //    char *split_by_colon = strtok(split_by_strtok, ":");
+    //    while(split_by_colon != NULL)
+    //    {
+    //      split_by_colon = strtok(NULL, ":");
+    //      if (split_by_colon != NULL)
+    //      {
+    //        printf("\n Splitting by colon: %s\n", split_by_colon);
+    //      }
+    //    }
+    //  }
+    //  
+    //  
+    //  }
+
+    //   line_no += 1;
+    //}
    //printf("position: %d\n", position_of_end_of_headers);
     
    // printf("request line and headers: %s\n", recv_buffer[position_of_end_of_headers]); // completely wrong have to do apply strncpy or putchar for this
@@ -193,7 +261,6 @@ int main(int argc, char *argv[])
   close(client_socket);
   //close(server_socket);
   }
-
 
   return SUCCESS;
 }
