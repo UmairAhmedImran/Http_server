@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Wall -Iinclude
-SRC = src/http.c src/server.c src/main.c
+SRC = src/http.c src/server.c src/backend.c src/main.c
 OUT = build/server
 
 all:
