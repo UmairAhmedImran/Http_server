@@ -1,0 +1,17 @@
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "========================================="}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Load Balancer Server Starting"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "========================================="}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Initialized 3 backend servers"}
+{"timestamp": "2025-12-08 12:19:28", "level": "DEBUG", "message": "Backend 1: 127.0.0.1:9001 (active: true, weight: 1)"}
+{"timestamp": "2025-12-08 12:19:28", "level": "DEBUG", "message": "Backend 2: 127.0.0.1:9002 (active: true, weight: 1)"}
+{"timestamp": "2025-12-08 12:19:28", "level": "DEBUG", "message": "Backend 3: 127.0.0.1:9003 (active: true, weight: 1)"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Successfully initialized backend pool with 3 servers"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Backend 1: 127.0.0.1:9001 (Weight: 1, Active: true)"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Backend 2: 127.0.0.1:9002 (Weight: 1, Active: true)"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Backend 3: 127.0.0.1:9003 (Weight: 1, Active: true)"}
+{"timestamp": "2025-12-08 12:19:28", "level": "DEBUG", "message": "Selected backend 127.0.0.1:9001 (index: 0, connections: 0)"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Initial backend selection test: 127.0.0.1:9001"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Server configuration loaded"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Starting server..."}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Server listening on port 8080"}
+{"timestamp": "2025-12-08 12:19:28", "level": "INFO", "message": "Server ready to accept connections"}
