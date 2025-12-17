@@ -11,7 +11,14 @@
 
 void handle_client(int client_socket, char *recv_buffer, struct sockaddr_in client_addr) {
     struct Request req;
-    parse_http_request(recv_buffer, &req);
+
+    // Parse the HTTP request using a COPY of the buffer so we don't mutate
+    // the raw bytes that will be forwarded to the backend.
+    char parse_buffer[BUFFER_SIZE];
+    strncpy(parse_buffer, recv_buffer, BUFFER_SIZE - 1);
+    parse_buffer[BUFFER_SIZE - 1] = '\0';
+
+    parse_http_request(parse_buffer, &req);
 
     char client_ip[INET_ADDRSTRLEN];
     inet_ntop(AF_INET, &client_addr.sin_addr, client_ip, INET_ADDRSTRLEN);
@@ -19,54 +26,91 @@ void handle_client(int client_socket, char *recv_buffer, struct sockaddr_in clie
     log_message(LOG_INFO, "Received request from %s:%d", client_ip, ntohs(client_addr.sin_port));
     log_message(LOG_DEBUG, "Request: %s %s %s", req.method, req.path, req.version);
 
-    struct Backend *selected_backend = get_next_backend(&backend_pool);
-    
-    if (!selected_backend) {
+    // Failover strategy:
+    //  - Try backends in fixed order: 9001, then 9002, then 9003
+    //  - Skip any backend already marked inactive
+    //  - On failure, try the next backend for THIS request
+    //  - If all attempts fail, return 502 to the client
+
+    int any_active = 0;
+    for (int i = 0; i < backend_pool.count; i++) {
+        if (backend_pool.backends[i].is_active) {
+            any_active = 1;
+            break;
+        }
+    }
+
+    if (!any_active) {
         log_error("server", "no_backend_available", "No backend servers available");
-        
+
         struct Response res;
         res.status_code = 503;
         strcpy(res.content_type, "application/json");
         snprintf(res.body, sizeof(res.body),
                  "{\"error\": \"Service Unavailable\", \"message\": \"No backend servers available\"}");
-        
+
         send_response(client_socket, &res);
         log_request(req.method, req.path, "none", 503);
-        
+
         free(req.body);
         close(client_socket);
         return;
     }
 
-    log_message(LOG_INFO, "Selected backend: %s:%d for request %s %s", 
-                selected_backend->host, selected_backend->port, req.method, req.path);
+    int forward_result = -1;
+    struct Backend *used_backend = NULL;
 
-    int forward_result = forward_to_backend(selected_backend, recv_buffer);
-    
-    // Create backend string with port for logging
+    for (int i = 0; i < backend_pool.count; i++) {
+        struct Backend *candidate = &backend_pool.backends[i];
+
+        if (!candidate->is_active) {
+            continue;
+        }
+
+        log_message(LOG_INFO, "Trying backend %s:%d for request %s %s",
+                    candidate->host, candidate->port, req.method, req.path);
+
+        forward_result = forward_to_backend(candidate, recv_buffer);
+
+        if (forward_result == 0) {
+            used_backend = candidate;
+            break;
+        }
+
+        // forward_to_backend already logs and may mark backend inactive.
+        log_error("server", "forward_failed", "Failed to forward request to backend, trying next if available");
+    }
+
     char backend_with_port[100];
-    snprintf(backend_with_port, sizeof(backend_with_port), "%s:%d", 
-             selected_backend->host, selected_backend->port);
-    
-    if (forward_result == 0) {
+
+    if (used_backend && forward_result == 0) {
+        snprintf(backend_with_port, sizeof(backend_with_port), "%s:%d",
+                 used_backend->host, used_backend->port);
+
         struct Response res;
         res.status_code = 200;
         strcpy(res.content_type, "application/json");
         snprintf(res.body, sizeof(res.body),
                  "{\"message\": \"Request forwarded successfully\", \"backend\": \"%s:%d\", \"path\": \"%s\"}",
-                 selected_backend->host, selected_backend->port, req.path);
-        
+                 used_backend->host, used_backend->port, req.path);
+
         send_response(client_socket, &res);
         log_request(req.method, req.path, backend_with_port, 200);
     } else {
-        log_error("server", "forward_failed", "Failed to forward request to backend");
-        
+        // All backends failed for this request
         struct Response res;
         res.status_code = 502;
         strcpy(res.content_type, "application/json");
         snprintf(res.body, sizeof(res.body),
-                 "{\"error\": \"Bad Gateway\", \"message\": \"Failed to forward to backend server\"}");
-        
+                 "{\"error\": \"Bad Gateway\", \"message\": \"Failed to forward to any backend server\"}");
+
+        // Best-effort backend string (may be "none" if nothing active)
+        if (any_active) {
+            snprintf(backend_with_port, sizeof(backend_with_port), "multiple/failed");
+        } else {
+            snprintf(backend_with_port, sizeof(backend_with_port), "none");
+        }
+
         send_response(client_socket, &res);
         log_request(req.method, req.path, backend_with_port, 502);
     }
