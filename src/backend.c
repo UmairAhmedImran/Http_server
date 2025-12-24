@@ -9,6 +9,7 @@
 #include <errno.h>
 
 void init_backends(struct BackendPool *pool) {
+    // Adding values to the BackendPool struct
     pool->count = 3;
     pool->current_index = 0;
 
@@ -50,6 +51,9 @@ struct Backend *get_next_backend(struct BackendPool *pool) {
 
     int attempts = 0;
 
+    // if backends count is greater than 0,
+    // get the current_index and assign to pool 
+    // and repeat to find an active backend and if not found show error
     while (attempts < pool->count) {
         struct Backend *backend = &pool->backends[pool->current_index];
         
