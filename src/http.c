@@ -12,6 +12,8 @@ void send_response(int client_socket, struct Response *res) {
         case 200: status_text = "OK"; break;
         case 400: status_text = "Bad Request"; break;
         case 404: status_text = "Not Found"; break;
+        case 502: status_text = "Bad Gateway"; break;
+        case 503: status_text = "Service Unavailable"; break;
         case 500: status_text = "Internal Server Error"; break;
         default: status_text = "Unknown"; break;
     }

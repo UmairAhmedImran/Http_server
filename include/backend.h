@@ -1,4 +1,3 @@
-// include/backend.h
 #ifndef BACKEND_H
 #define BACKEND_H
 
@@ -7,6 +6,7 @@
 struct Backend {
     char host[50];
     int port;
+    int weight;
     int active_connections;
     bool is_active;
 };
@@ -19,6 +19,6 @@ struct BackendPool {
 
 void init_backends(struct BackendPool *pool);
 struct Backend *get_next_backend(struct BackendPool *pool);
+int forward_to_backend(struct Backend *backend, const char *request);
 
 #endif
-
