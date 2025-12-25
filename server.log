@@ -52,3 +52,79 @@ Accept: */*
 2025-12-25 02:49:12: [[31mERROR[97m]: server: forward_failed: Failed to forward request to backend, trying next if available
 2025-12-25 02:49:12: [[32mINFO[97m]: request: GET: /: multiple/failed: 502}
 2025-12-25 02:49:12: [[34mDEBUG[97m]: Client connection closed
+2025-12-25 13:27:09: [[32mINFO[97m]: =========================================
+2025-12-25 13:27:09: [[32mINFO[97m]: Load Balancer Server Starting
+2025-12-25 13:27:09: [[32mINFO[97m]: =========================================
+2025-12-25 13:27:09: [[32mINFO[97m]: Initialized 3 backend servers
+2025-12-25 13:27:09: [[34mDEBUG[97m]: Backend 1: 127.0.0.1:9001 (active: true, weight: 1)
+2025-12-25 13:27:09: [[34mDEBUG[97m]: Backend 2: 127.0.0.1:9002 (active: true, weight: 1)
+2025-12-25 13:27:09: [[34mDEBUG[97m]: Backend 3: 127.0.0.1:9003 (active: true, weight: 1)
+2025-12-25 13:27:09: [[32mINFO[97m]: Successfully initialized backend pool with 3 servers
+2025-12-25 13:27:09: [[32mINFO[97m]: Backend 1: 127.0.0.1:9001 (Weight: 1, Active: true)
+2025-12-25 13:27:09: [[32mINFO[97m]: Backend 2: 127.0.0.1:9002 (Weight: 1, Active: true)
+2025-12-25 13:27:09: [[32mINFO[97m]: Backend 3: 127.0.0.1:9003 (Weight: 1, Active: true)
+2025-12-25 13:27:09: [[34mDEBUG[97m]: Selected backend 127.0.0.1:9001 (index: 0, connections: 0)
+2025-12-25 13:27:09: [[32mINFO[97m]: Initial backend selection test: 127.0.0.1:9001
+2025-12-25 13:27:09: [[32mINFO[97m]: Server configuration loaded
+2025-12-25 13:27:09: [[32mINFO[97m]: Starting server...
+2025-12-25 13:27:09: [[32mINFO[97m]: Server listening on port 8080
+2025-12-25 13:27:09: [[32mINFO[97m]: Server ready to accept connections
+2025-12-25 13:27:18: [[32mINFO[97m]: Received request from 127.0.0.1:49341
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-25 13:27:18: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET /
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: localhost:8080
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-25 13:27:18: [[31mERROR[97m]: backend: connection_failed: Failed to connect to backend server
+2025-12-25 13:27:18: [[33mWARNING[97m]: Marked backend 127.0.0.1:9001 as inactive due to connection failure
+2025-12-25 13:27:18: [[31mERROR[97m]: server: forward_failed: Failed to forward request to backend, trying next if available
+2025-12-25 13:27:18: [[32mINFO[97m]: Trying backend 127.0.0.1:9002 for request GET /
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9002
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: localhost:8080
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-25 13:27:18: [[31mERROR[97m]: backend: connection_failed: Failed to connect to backend server
+2025-12-25 13:27:18: [[33mWARNING[97m]: Marked backend 127.0.0.1:9002 as inactive due to connection failure
+2025-12-25 13:27:18: [[31mERROR[97m]: server: forward_failed: Failed to forward request to backend, trying next if available
+2025-12-25 13:27:18: [[32mINFO[97m]: Trying backend 127.0.0.1:9003 for request GET /
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9003
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: localhost:8080
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-25 13:27:18: [[31mERROR[97m]: backend: connection_failed: Failed to connect to backend server
+2025-12-25 13:27:18: [[33mWARNING[97m]: Marked backend 127.0.0.1:9003 as inactive due to connection failure
+2025-12-25 13:27:18: [[31mERROR[97m]: server: forward_failed: Failed to forward request to backend, trying next if available
+2025-12-25 13:27:18: [[32mINFO[97m]: request: GET: /: multiple/failed: 502}
+2025-12-25 13:27:18: [[34mDEBUG[97m]: Client connection closed
+2025-12-25 13:27:45: [[32mINFO[97m]: Received request from 127.0.0.1:49346
+2025-12-25 13:27:45: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-25 13:27:45: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET /
+2025-12-25 13:27:45: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-25 13:27:45: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: localhost:8080
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-25 13:27:45: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-25 13:27:45: [[34mDEBUG[97m]: Sent 77 bytes to backend 127.0.0.1:9001
+2025-12-25 13:27:45: [[34mDEBUG[97m]: Received 177 bytes from backend 127.0.0.1:9001
+2025-12-25 13:27:45: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Thu, 25 Dec 2025 08:27:45 GMT
+Content-Type: application/json
+
+{\"backend\": \"9001\", \"message\": \"Hello from backend\"}
+2025-12-25 13:27:45: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-25 13:27:45: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-25 13:27:45: [[34mDEBUG[97m]: Client connection closed
