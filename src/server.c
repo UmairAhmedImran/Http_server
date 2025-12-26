@@ -77,24 +77,45 @@ void handle_client(int client_socket, char *recv_buffer,
 
   int forward_result = -1;
   struct Backend *used_backend = NULL;
+  char *backend_response = NULL;
+  ssize_t backend_response_size = 0;
 
   pthread_mutex_lock(&backend_mutex);
 
+  // Try each backend, including inactive ones (they might have recovered)
   for (int i = 0; i < backend_pool.count; i++) {
     struct Backend *candidate = &backend_pool.backends[i];
 
-    if (!candidate->is_active) {
-      continue;
+    // Skip inactive backends only if we have active ones to try first
+    // But if all are inactive, try them anyway (they might have recovered)
+    int has_active = 0;
+    for (int j = 0; j < backend_pool.count; j++) {
+      if (backend_pool.backends[j].is_active) {
+        has_active = 1;
+        break;
+      }
+    }
+    
+    if (!candidate->is_active && has_active) {
+      continue; // Skip inactive backends if we have active ones
     }
 
-    log_message(LOG_INFO, "Trying backend %s:%d for request %s %s",
-                candidate->host, candidate->port, req.method, req.path);
+    log_message(LOG_INFO, "Trying backend %s:%d for request %s %s (active: %s)",
+                candidate->host, candidate->port, req.method, req.path,
+                candidate->is_active ? "true" : "false");
 
     pthread_mutex_unlock(&backend_mutex);
-    forward_result = forward_to_backend(candidate, recv_buffer);
+    forward_result = forward_to_backend(candidate, recv_buffer, 
+                                       &backend_response, &backend_response_size);
     pthread_mutex_lock(&backend_mutex);
     if (forward_result == 0) {
       used_backend = candidate;
+      // If backend was inactive but now works, mark it active again
+      if (!candidate->is_active) {
+        candidate->is_active = true;
+        log_message(LOG_INFO, "Backend %s:%d recovered and is now active", 
+                   candidate->host, candidate->port);
+      }
       break;
     }
 
@@ -107,20 +128,45 @@ void handle_client(int client_socket, char *recv_buffer,
 
   char backend_with_port[100];
 
-  if (used_backend && forward_result == 0) {
+  if (used_backend && forward_result == 0 && backend_response && backend_response_size > 0) {
     snprintf(backend_with_port, sizeof(backend_with_port), "%s:%d",
              used_backend->host, used_backend->port);
 
-    struct Response res;
-    res.status_code = 200;
-    strcpy(res.content_type, "application/json");
-    snprintf(res.body, sizeof(res.body),
-             "{\"message\": \"Request forwarded successfully\", \"backend\": "
-             "\"%s:%d\", \"path\": \"%s\"}",
-             used_backend->host, used_backend->port, req.path);
+    // Forward the backend's HTTP response directly to the client
+    ssize_t sent = send(client_socket, backend_response, backend_response_size, 0);
+    
+    if (sent < 0) {
+      log_error("server", "send_to_client_failed", "Failed to send backend response to client");
+    } else if (sent != backend_response_size) {
+      log_message(LOG_WARNING, "Partial send to client (%zd/%zd bytes)", 
+                 sent, backend_response_size);
+    } else {
+      log_message(LOG_DEBUG, "Successfully forwarded %zd bytes from backend to client", sent);
+    }
 
-    send_response(client_socket, &res);
-    log_request(req.method, req.path, backend_with_port, 200);
+    // Extract status code from response for logging (simple parsing)
+    int status_code = 200; // default
+    if (backend_response_size > 12) {
+      // HTTP response starts with "HTTP/1.x STATUS_CODE"
+      // Try to parse status code from response
+      char status_str[4] = {0};
+      const char *status_pos = strstr(backend_response, "HTTP/");
+      if (status_pos) {
+        // Find space after HTTP version, then read status code
+        const char *code_start = strchr(status_pos, ' ');
+        if (code_start) {
+          code_start++; // skip space
+          strncpy(status_str, code_start, 3);
+          status_code = atoi(status_str);
+        }
+      }
+    }
+
+    log_request(req.method, req.path, backend_with_port, status_code);
+    
+    // Free the backend response buffer
+    free(backend_response);
+    backend_response = NULL;
   } else {
     // All backends failed for this request
     struct Response res;
@@ -139,6 +185,12 @@ void handle_client(int client_socket, char *recv_buffer,
 
     send_response(client_socket, &res);
     log_request(req.method, req.path, backend_with_port, 502);
+    
+    // Clean up if we have a partial response
+    if (backend_response) {
+      free(backend_response);
+      backend_response = NULL;
+    }
   }
 
   free(req.body);
