@@ -1,4 +1,13 @@
 server.log
 build/
 build/server
+config
+Makefile
+config.log
+config.status
+*.o
+*.tar.gz
+*.tar.bz2
+*.zip
+autom4te.cache/
 

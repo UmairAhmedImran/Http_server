@@ -1,5 +1,6 @@
 #include "../include/backend.h"
 #include "../include/logging.h"
+#include "../include/config.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
@@ -13,35 +14,40 @@
 
 extern pthread_mutex_t backend_mutex;
 
-void init_backends(struct BackendPool *pool) {
-    pool->count = 3;
-    pool->current_index = 0;
+void init_backends(struct BackendPool *pool, const char *config_file) {
+    if (config_file && load_config(config_file, pool) == 0) {
+        log_message(LOG_INFO, "Initialized %d backend servers from config file", pool->count);
+    } else {
+        log_message(LOG_INFO, "Using default backend configuration");
+        pool->count = 3;
+        pool->current_index = 0;
 
-    strncpy(pool->backends[0].host, "127.0.0.1", sizeof(pool->backends[0].host) - 1);
-    pool->backends[0].host[sizeof(pool->backends[0].host) - 1] = '\0';
-    pool->backends[0].port = 9001;
-    pool->backends[0].weight = 3;
-    pool->backends[0].active_connections = 0;
-    pool->backends[0].is_active = true;
-    pool->current_weights[0] = pool->backends[0].weight;
+        strncpy(pool->backends[0].host, "127.0.0.1", sizeof(pool->backends[0].host) - 1);
+        pool->backends[0].host[sizeof(pool->backends[0].host) - 1] = '\0';
+        pool->backends[0].port = 9001;
+        pool->backends[0].weight = 3;
+        pool->backends[0].active_connections = 0;
+        pool->backends[0].is_active = true;
+        pool->current_weights[0] = pool->backends[0].weight;
 
-    strncpy(pool->backends[1].host, "127.0.0.1", sizeof(pool->backends[1].host) - 1);
-    pool->backends[1].host[sizeof(pool->backends[1].host) - 1] = '\0';
-    pool->backends[1].port = 9002;
-    pool->backends[1].weight = 2;
-    pool->backends[1].active_connections = 0;
-    pool->backends[1].is_active = true;
-    pool->current_weights[1] = pool->backends[1].weight;
+        strncpy(pool->backends[1].host, "127.0.0.1", sizeof(pool->backends[1].host) - 1);
+        pool->backends[1].host[sizeof(pool->backends[1].host) - 1] = '\0';
+        pool->backends[1].port = 9002;
+        pool->backends[1].weight = 2;
+        pool->backends[1].active_connections = 0;
+        pool->backends[1].is_active = true;
+        pool->current_weights[1] = pool->backends[1].weight;
 
-    strncpy(pool->backends[2].host, "127.0.0.1", sizeof(pool->backends[2].host) - 1);
-    pool->backends[2].host[sizeof(pool->backends[2].host) - 1] = '\0';
-    pool->backends[2].port = 9003;
-    pool->backends[2].weight = 1;
-    pool->backends[2].active_connections = 0;
-    pool->backends[2].is_active = true;
-    pool->current_weights[2] = pool->backends[2].weight;
+        strncpy(pool->backends[2].host, "127.0.0.1", sizeof(pool->backends[2].host) - 1);
+        pool->backends[2].host[sizeof(pool->backends[2].host) - 1] = '\0';
+        pool->backends[2].port = 9003;
+        pool->backends[2].weight = 1;
+        pool->backends[2].active_connections = 0;
+        pool->backends[2].is_active = true;
+        pool->current_weights[2] = pool->backends[2].weight;
 
-    log_message(LOG_INFO, "Initialized %d backend servers", pool->count);
+        log_message(LOG_INFO, "Initialized %d backend servers", pool->count);
+    }
     
     for (int i = 0; i < pool->count; i++) {
         log_message(LOG_DEBUG, "Backend %d: %s:%d (active: %s, weight: %d)", 

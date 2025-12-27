@@ -19,7 +19,7 @@ struct BackendPool {
     int current_weights[10];  // Current weights for weighted round-robin
 };
 
-void init_backends(struct BackendPool *pool);
+void init_backends(struct BackendPool *pool, const char *config_file);
 struct Backend *get_next_backend(struct BackendPool *pool);
 // Returns response buffer (caller must free) and size via output parameters
 // Returns 0 on success, -1 on failure

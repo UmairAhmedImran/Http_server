@@ -1,0 +1,111 @@
+#!/bin/sh
+
+# Simple configure script for http-loadbalancer
+# This is a simplified version - for full autotools, use autoconf
+
+VERSION="1.0.0"
+PREFIX="/usr/local"
+SYSCONFDIR="${PREFIX}/etc"
+BINDIR="${PREFIX}/bin"
+LOGDIR="${PREFIX}/var/log"
+CC="gcc"
+CFLAGS="-Wall -Wextra"
+LDFLAGS=""
+
+# Parse command line arguments
+while [ $# -gt 0 ]; do
+    case $1 in
+        --prefix=*)
+            PREFIX="${1#*=}"
+            SYSCONFDIR="${PREFIX}/etc"
+            BINDIR="${PREFIX}/bin"
+            LOGDIR="${PREFIX}/var/log"
+            ;;
+        --prefix)
+            shift
+            PREFIX="$1"
+            SYSCONFDIR="${PREFIX}/etc"
+            BINDIR="${PREFIX}/bin"
+            LOGDIR="${PREFIX}/var/log"
+            ;;
+        --sysconfdir=*)
+            SYSCONFDIR="${1#*=}"
+            ;;
+        --sysconfdir)
+            shift
+            SYSCONFDIR="$1"
+            ;;
+        --with-prefix=*)
+            PREFIX="${1#*=}"
+            SYSCONFDIR="${PREFIX}/etc"
+            BINDIR="${PREFIX}/bin"
+            LOGDIR="${PREFIX}/var/log"
+            ;;
+        --help)
+            cat << EOF
+Usage: ./configure [OPTIONS]
+
+Options:
+  --prefix=PREFIX         Installation prefix (default: /usr/local)
+  --sysconfdir=DIR       System configuration directory (default: PREFIX/etc)
+  --help                 Show this help message
+
+Examples:
+  ./configure
+  ./configure --prefix=/usr
+  ./configure --prefix=/opt/loadbalancer --sysconfdir=/opt/loadbalancer/etc
+
+EOF
+            exit 0
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Run ./configure --help for usage information"
+            exit 1
+            ;;
+    esac
+    shift
+done
+
+# Check for required tools
+if ! command -v "$CC" >/dev/null 2>&1; then
+    echo "Error: $CC not found. Please install a C compiler."
+    exit 1
+fi
+
+# Check for pthread
+echo "Checking for pthread library..."
+cat > /tmp/test_pthread.c << 'EOFTEST'
+#include <pthread.h>
+void* test(void* arg) { return NULL; }
+int main() { pthread_t t; pthread_create(&t, NULL, test, NULL); return 0; }
+EOFTEST
+
+if $CC -lpthread /tmp/test_pthread.c -o /tmp/test_pthread 2>/dev/null; then
+    echo "pthread library found"
+    rm -f /tmp/test_pthread.c /tmp/test_pthread
+else
+    echo "Error: pthread library not found"
+    rm -f /tmp/test_pthread.c /tmp/test_pthread
+    exit 1
+fi
+
+# Generate Makefile from Makefile.in
+echo "Configuring http-loadbalancer $VERSION..."
+echo "Installation prefix: $PREFIX"
+echo "Binary directory: $BINDIR"
+echo "Configuration directory: $SYSCONFDIR"
+
+sed -e "s|@CC@|$CC|g" \
+    -e "s|@CFLAGS@|$CFLAGS|g" \
+    -e "s|@LDFLAGS@|$LDFLAGS|g" \
+    -e "s|@prefix@|$PREFIX|g" \
+    -e "s|@bindir@|$BINDIR|g" \
+    -e "s|@sysconfdir@|$SYSCONFDIR|g" \
+    -e "s|@localstatedir@|$LOGDIR|g" \
+    -e "s|@srcdir@|.|g" \
+    -e "s|@VERSION@|$VERSION|g" \
+    Makefile.in > Makefile
+
+echo "Configuration complete. Run 'make' to build."
+

@@ -229,7 +229,7 @@ void *client_thread_handler(void *arg) {
   return NULL;
 }
 
-int start_server() {
+int start_server(int port) {
   int server_socket, client_socket;
   struct sockaddr_in server_addr, client_addr;
   char recv_buffer[BUFFER_SIZE];
@@ -257,14 +257,14 @@ int start_server() {
   }
 
   server_addr.sin_family = AF_INET;
-  server_addr.sin_port = htons(SERVER_PORT);
+  server_addr.sin_port = htons(port);
   server_addr.sin_addr.s_addr = INADDR_ANY;
 
   if (bind(server_socket, (struct sockaddr *)&server_addr,
            sizeof(server_addr)) == -1) {
     char err_msg[256];
     snprintf(err_msg, sizeof(err_msg), "Failed to bind socket to port %d: %s (errno: %d)",
-             SERVER_PORT, strerror(errno), errno);
+             port, strerror(errno), errno);
     log_error("server", "bind_failed", err_msg);
     close(server_socket);
     return FAILURE;
@@ -279,7 +279,7 @@ int start_server() {
     return FAILURE;
   }
 
-  log_message(LOG_INFO, "Server listening on port %d", SERVER_PORT);
+  log_message(LOG_INFO, "Server listening on port %d", port);
   log_message(LOG_INFO, "Server ready to accept connections");
 
   while (1) {

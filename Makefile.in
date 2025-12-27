@@ -1,16 +1,16 @@
-CC = gcc
-CFLAGS = -Wall -Wextra -I./include
-LDFLAGS = 
-PREFIX = /usr/local
-BINDIR = /usr/local/bin
-SYSCONFDIR = /usr/local/etc
-LOGDIR = /usr/local/var/log/log
+CC = @CC@
+CFLAGS = @CFLAGS@ -I@srcdir@/include
+LDFLAGS = @LDFLAGS@
+PREFIX = @prefix@
+BINDIR = @bindir@
+SYSCONFDIR = @sysconfdir@
+LOGDIR = @localstatedir@/log
 
 SRC = src/http.c src/server.c src/backend.c src/main.c src/logging.c src/config.c
 OBJ = $(SRC:.c=.o)
 OUT = build/server
 
-VERSION = 1.0.0
+VERSION = @VERSION@
 
 all: $(OUT)
 

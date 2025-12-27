@@ -1,0 +1,13 @@
+# Load Balancer Configuration File
+# Format: host:port:weight
+# Lines starting with # are comments
+# Empty lines are ignored
+
+# Backend servers configuration
+# Weight determines the proportion of traffic each backend receives
+# Higher weight = more requests
+
+127.0.0.1:9001:3
+127.0.0.1:9002:2
+127.0.0.1:9003:1
+
