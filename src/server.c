@@ -1,5 +1,6 @@
 #include "../include/server.h"
 #include "../include/http.h"
+#include "../include/backend.h"
 #include "../include/logging.h"
 #include <arpa/inet.h>
 #include <netinet/in.h>
@@ -104,9 +105,30 @@ void handle_client(int client_socket, char *recv_buffer,
                 candidate->host, candidate->port, req.method, req.path,
                 candidate->is_active ? "true" : "false");
 
+    // Copy backend info before unlocking mutex (we need it for modify_request_for_proxy)
+    struct Backend backend_copy;
+    strncpy(backend_copy.host, candidate->host, sizeof(backend_copy.host) - 1);
+    backend_copy.host[sizeof(backend_copy.host) - 1] = '\0';
+    backend_copy.port = candidate->port;
+
     pthread_mutex_unlock(&backend_mutex);
-    forward_result = forward_to_backend(candidate, recv_buffer, 
+
+    // Modify request to add proxy headers (X-Forwarded-For, Host, etc.)
+    // This doesn't need mutex protection as it only modifies the request string
+    char *modified_request = modify_request_for_proxy(recv_buffer, &req, client_ip, &backend_copy);
+    if (!modified_request) {
+        log_error("server", "request_modification_failed", 
+                  "Failed to modify request for proxy compatibility");
+        pthread_mutex_lock(&backend_mutex);
+        continue;
+    }
+
+    forward_result = forward_to_backend(candidate, modified_request, 
                                        &backend_response, &backend_response_size);
+    
+    // Free the modified request after forwarding
+    free(modified_request);
+    
     pthread_mutex_lock(&backend_mutex);
     if (forward_result == 0) {
       used_backend = candidate;
