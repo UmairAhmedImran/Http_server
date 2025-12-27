@@ -1,10 +1,12 @@
 #include "../include/http.h"
 #include "../include/backend.h"
+#include "../include/logging.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
 #include <sys/socket.h>
 #include <strings.h>  // for strcasecmp
+#include <errno.h>
 
 void send_response(int client_socket, struct Response *res) {
     char buffer[2048];
@@ -61,21 +63,40 @@ void parse_http_request(char *recv_buffer, struct Request *req) {
 
         if (line_no == 0) {
             char *token = strtok_r(line, " ", &saveptr_inner);
-            if (token) strncpy(req->method, token, sizeof(req->method));
+            if (token) {
+                strncpy(req->method, token, sizeof(req->method) - 1);
+                req->method[sizeof(req->method) - 1] = '\0';
+            }
             token = strtok_r(NULL, " ", &saveptr_inner);
-            if (token) strncpy(req->path, token, sizeof(req->path));
+            if (token) {
+                strncpy(req->path, token, sizeof(req->path) - 1);
+                req->path[sizeof(req->path) - 1] = '\0';
+            }
             token = strtok_r(NULL, " ", &saveptr_inner);
-            if (token) strncpy(req->version, token, sizeof(req->version));
+            if (token) {
+                strncpy(req->version, token, sizeof(req->version) - 1);
+                req->version[sizeof(req->version) - 1] = '\0';
+            }
         } else if (in_headers) {
             char *colon_pos = strchr(line, ':');
-            if (colon_pos) {
+            if (colon_pos && req->header_count < MAX_HEADERS) {
                 int index = req->header_count;
                 size_t key_len = colon_pos - line;
+                size_t max_key_len = sizeof(req->headers[index].key) - 1;
+                if (key_len > max_key_len) {
+                    key_len = max_key_len;
+                }
                 strncpy(req->headers[index].key, line, key_len);
                 req->headers[index].key[key_len] = '\0';
                 char *value = colon_pos + 1;
                 while (*value == ' ') value++;
-                strncpy(req->headers[index].value, value, sizeof(req->headers[index].value));
+                size_t max_value_len = sizeof(req->headers[index].value) - 1;
+                size_t value_len = strlen(value);
+                if (value_len > max_value_len) {
+                    value_len = max_value_len;
+                }
+                strncpy(req->headers[index].value, value, value_len);
+                req->headers[index].value[value_len] = '\0';
                 req->header_count++;
             }
         }
@@ -85,7 +106,6 @@ void parse_http_request(char *recv_buffer, struct Request *req) {
     }
 }
 
-// Helper function to find a header by name (case-insensitive)
 static struct Header* find_header(struct Request *req, const char *name) {
     for (int i = 0; i < req->header_count; i++) {
         if (strcasecmp(req->headers[i].key, name) == 0) {
@@ -95,8 +115,6 @@ static struct Header* find_header(struct Request *req, const char *name) {
     return NULL;
 }
 
-// Modify HTTP request to add proxy headers (X-Forwarded-For, X-Real-IP, Host)
-// Returns a newly allocated string that must be freed by the caller
 char* modify_request_for_proxy(const char *original_request, 
                                 struct Request *req,
                                 const char *client_ip,
@@ -105,24 +123,19 @@ char* modify_request_for_proxy(const char *original_request,
         return NULL;
     }
 
-    // Calculate size needed for modified request
-    // Original request size + new headers (X-Forwarded-For, X-Real-IP, Host update)
     size_t original_len = strlen(original_request);
-    size_t buffer_size = original_len + 512; // Extra space for new headers
+    size_t buffer_size = original_len + 512;
     char *modified = malloc(buffer_size);
     if (!modified) {
         return NULL;
     }
 
-    // Find existing headers
     struct Header *x_forwarded_for = find_header(req, "X-Forwarded-For");
     struct Header *x_real_ip = find_header(req, "X-Real-IP");
 
-    // Build the new request
     char *ptr = modified;
     size_t remaining = buffer_size;
 
-    // Copy request line (first line)
     const char *request_line_end = strstr(original_request, "\r\n");
     if (!request_line_end) {
         request_line_end = strstr(original_request, "\n");
@@ -130,41 +143,62 @@ char* modify_request_for_proxy(const char *original_request,
     if (request_line_end) {
         size_t line_len = request_line_end - original_request;
         if (line_len < remaining) {
-            strncpy(ptr, original_request, line_len);
-            ptr += line_len;
-            remaining -= line_len;
-            *ptr++ = '\r';
-            *ptr++ = '\n';
-            remaining -= 2;
+            if (line_len < remaining) {
+                strncpy(ptr, original_request, line_len);
+                ptr[line_len] = '\0';
+                ptr += line_len;
+                remaining -= line_len;
+                if (remaining >= 2) {
+                    *ptr++ = '\r';
+                    *ptr++ = '\n';
+                    remaining -= 2;
+                }
+            } else {
+                log_error("http", "buffer_overflow", "Request line too long");
+                free(modified);
+                return NULL;
+            }
         }
     } else {
-        // Fallback: copy first line manually
         const char *first_newline = strchr(original_request, '\n');
         if (first_newline) {
             size_t line_len = first_newline - original_request;
             if (line_len < remaining) {
                 strncpy(ptr, original_request, line_len);
+                ptr[line_len] = '\0';
                 ptr += line_len;
                 remaining -= line_len;
-                *ptr++ = '\r';
-                *ptr++ = '\n';
-                remaining -= 2;
+                if (remaining >= 2) {
+                    *ptr++ = '\r';
+                    *ptr++ = '\n';
+                    remaining -= 2;
+                }
+            } else {
+                log_error("http", "buffer_overflow", "Request line too long");
+                free(modified);
+                return NULL;
             }
         }
     }
 
-    // Add/Update Host header
     char host_value[100];
-    snprintf(host_value, sizeof(host_value), "%s:%d", backend->host, backend->port);
+    int host_snprintf_result = snprintf(host_value, sizeof(host_value), "%s:%d", backend->host, backend->port);
+    if (host_snprintf_result < 0 || host_snprintf_result >= (int)sizeof(host_value)) {
+        log_error("http", "host_value_overflow", "Host value too long");
+        free(modified);
+        return NULL;
+    }
     int host_written = snprintf(ptr, remaining, "Host: %s\r\n", host_value);
     if (host_written > 0 && host_written < (int)remaining) {
         ptr += host_written;
         remaining -= host_written;
+    } else if (host_written >= (int)remaining) {
+        log_error("http", "buffer_overflow", "Not enough space for Host header");
+        free(modified);
+        return NULL;
     }
 
-    // Add/Update X-Forwarded-For header
     if (x_forwarded_for) {
-        // Append to existing chain
         int xff_written = snprintf(ptr, remaining, "X-Forwarded-For: %s, %s\r\n", 
                                    x_forwarded_for->value, client_ip);
         if (xff_written > 0 && xff_written < (int)remaining) {
@@ -172,7 +206,6 @@ char* modify_request_for_proxy(const char *original_request,
             remaining -= xff_written;
         }
     } else {
-        // Add new header
         int xff_written = snprintf(ptr, remaining, "X-Forwarded-For: %s\r\n", client_ip);
         if (xff_written > 0 && xff_written < (int)remaining) {
             ptr += xff_written;
@@ -180,7 +213,6 @@ char* modify_request_for_proxy(const char *original_request,
         }
     }
 
-    // Add/Update X-Real-IP header
     if (!x_real_ip) {
         int xri_written = snprintf(ptr, remaining, "X-Real-IP: %s\r\n", client_ip);
         if (xri_written > 0 && xri_written < (int)remaining) {
@@ -189,15 +221,13 @@ char* modify_request_for_proxy(const char *original_request,
         }
     }
 
-    // Copy existing headers (skip Host, X-Forwarded-For, X-Real-IP as we've already handled them)
     const char *headers_start = strstr(original_request, "\r\n");
     if (!headers_start) {
         headers_start = strstr(original_request, "\n");
     }
     if (headers_start) {
-        headers_start += 2; // Skip \r\n
+        headers_start += 2;
         
-        // Find end of headers (empty line)
         const char *headers_end = strstr(headers_start, "\r\n\r\n");
         if (!headers_end) {
             headers_end = strstr(headers_start, "\n\n");
@@ -207,31 +237,27 @@ char* modify_request_for_proxy(const char *original_request,
         }
 
         if (headers_end) {
-            // Parse and copy headers line by line, skipping ones we've replaced
             char *header_copy = strndup(headers_start, headers_end - headers_start);
             if (header_copy) {
                 char *line = strtok(header_copy, "\r\n");
                 while (line) {
-                    // Remove \n if present
                     char *line_end = strchr(line, '\n');
                     if (line_end) *line_end = '\0';
                     
-                    // Skip empty lines
                     if (strlen(line) == 0) {
                         line = strtok(NULL, "\r\n");
                         continue;
                     }
 
-                    // Check if this is a header we've already handled
                     char header_name[256];
                     const char *colon = strchr(line, ':');
                     if (colon) {
                         size_t name_len = colon - line;
                         if (name_len < sizeof(header_name)) {
-                            strncpy(header_name, line, name_len);
-                            header_name[name_len] = '\0';
+                            size_t copy_len = (name_len < sizeof(header_name) - 1) ? name_len : sizeof(header_name) - 1;
+                            strncpy(header_name, line, copy_len);
+                            header_name[copy_len] = '\0';
                             
-                            // Skip headers we've already added
                             if (strcasecmp(header_name, "Host") == 0 ||
                                 strcasecmp(header_name, "X-Forwarded-For") == 0 ||
                                 strcasecmp(header_name, "X-Real-IP") == 0) {
@@ -241,7 +267,6 @@ char* modify_request_for_proxy(const char *original_request,
                         }
                     }
 
-                    // Copy this header
                     int header_written = snprintf(ptr, remaining, "%s\r\n", line);
                     if (header_written > 0 && header_written < (int)remaining) {
                         ptr += header_written;
@@ -253,7 +278,6 @@ char* modify_request_for_proxy(const char *original_request,
                 free(header_copy);
             }
         } else {
-            // No clear header end, copy everything after first line
             const char *body_start = strstr(headers_start, "\r\n\r\n");
             if (!body_start) {
                 body_start = strstr(headers_start, "\n\n");
@@ -261,44 +285,50 @@ char* modify_request_for_proxy(const char *original_request,
             if (body_start) {
                 size_t copy_len = body_start - headers_start;
                 if (copy_len < remaining) {
-                    // We need to parse and filter, but for simplicity, 
-                    // let's just copy and filter manually
-                    // This is a fallback - the above parsing should work
                 }
             }
         }
     }
 
-    // Add empty line to separate headers from body
     if (remaining >= 2) {
         *ptr++ = '\r';
         *ptr++ = '\n';
         remaining -= 2;
     }
 
-    // Copy body if present
     if (req->body) {
         size_t body_len = strlen(req->body);
         if (body_len < remaining) {
             strncpy(ptr, req->body, body_len);
+            ptr[body_len] = '\0';
             ptr += body_len;
+        } else {
+            log_message(LOG_WARNING, "Request body truncated (size: %zu, remaining: %zu)", 
+                       body_len, remaining);
+            strncpy(ptr, req->body, remaining - 1);
+            ptr[remaining - 1] = '\0';
+            ptr += (remaining - 1);
         }
     } else {
-        // Check if original request had a body (after \r\n\r\n or \n\n)
         const char *body_marker = strstr(original_request, "\r\n\r\n");
         if (body_marker) {
-            body_marker += 4; // Skip \r\n\r\n
+            body_marker += 4;
         } else {
             body_marker = strstr(original_request, "\n\n");
             if (body_marker) {
-                body_marker += 2; // Skip \n\n
+                body_marker += 2;
             }
         }
         if (body_marker && *body_marker != '\0') {
             size_t body_len = strlen(body_marker);
             if (body_len < remaining) {
                 strncpy(ptr, body_marker, body_len);
+                ptr[body_len] = '\0';
                 ptr += body_len;
+            } else {
+                strncpy(ptr, body_marker, remaining - 1);
+                ptr[remaining - 1] = '\0';
+                ptr += (remaining - 1);
             }
         }
     }

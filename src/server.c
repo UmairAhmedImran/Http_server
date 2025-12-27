@@ -10,6 +10,7 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <unistd.h>
+#include <errno.h>
 
 pthread_mutex_t backend_mutex = PTHREAD_MUTEX_INITIALIZER;
 
@@ -22,10 +23,14 @@ typedef struct {
 void handle_client(int client_socket, char *recv_buffer,
                    struct sockaddr_in client_addr) {
   struct Request req;
+  req.body = NULL;
 
-  // Parse the HTTP request using a COPY of the buffer so we don't mutate
-  // the raw bytes that will be forwarded to the backend.
   char parse_buffer[BUFFER_SIZE];
+  if (strlen(recv_buffer) >= BUFFER_SIZE) {
+    log_error("server", "buffer_overflow", "Request buffer too large");
+    close(client_socket);
+    return;
+  }
   strncpy(parse_buffer, recv_buffer, BUFFER_SIZE - 1);
   parse_buffer[BUFFER_SIZE - 1] = '\0';
 
@@ -39,13 +44,6 @@ void handle_client(int client_socket, char *recv_buffer,
   log_message(LOG_DEBUG, "Request: %s %s %s", req.method, req.path,
               req.version);
 
-  // Failover strategy:
-  //  - Try backends in fixed order: 9001, then 9002, then 9003
-  //  - Skip any backend already marked inactive
-  //  - On failure, try the next backend for THIS request
-  //  - If all attempts fail, return 502 to the client
-
-  // locking mutex for before accessing backend_pool
   pthread_mutex_lock(&backend_mutex);
 
   int any_active = 0;
@@ -63,7 +61,8 @@ void handle_client(int client_socket, char *recv_buffer,
 
     struct Response res;
     res.status_code = 503;
-    strcpy(res.content_type, "application/json");
+    strncpy(res.content_type, "application/json", sizeof(res.content_type) - 1);
+    res.content_type[sizeof(res.content_type) - 1] = '\0';
     snprintf(res.body, sizeof(res.body),
              "{\"error\": \"Service Unavailable\", \"message\": \"No backend "
              "servers available\"}");
@@ -71,7 +70,10 @@ void handle_client(int client_socket, char *recv_buffer,
     send_response(client_socket, &res);
     log_request(req.method, req.path, "none", 503);
 
-    free(req.body);
+    if (req.body) {
+      free(req.body);
+      req.body = NULL;
+    }
     close(client_socket);
     return;
   }
@@ -80,14 +82,11 @@ void handle_client(int client_socket, char *recv_buffer,
   struct Backend *used_backend = NULL;
   char *backend_response = NULL;
   ssize_t backend_response_size = 0;
-  int max_attempts = backend_pool.count;  // Try all backends if needed
+  int max_attempts = backend_pool.count;
   int attempts = 0;
 
-  // Try backends using weighted round-robin with failover
   while (attempts < max_attempts) {
     pthread_mutex_lock(&backend_mutex);
-
-    // Use weighted round-robin to select the next backend
     struct Backend *candidate = get_next_backend(&backend_pool);
     
     if (!candidate) {
@@ -99,7 +98,6 @@ void handle_client(int client_socket, char *recv_buffer,
     log_message(LOG_INFO, "Selected backend %s:%d for request %s %s (weight: %d)",
                 candidate->host, candidate->port, req.method, req.path, candidate->weight);
 
-    // Copy backend info before unlocking mutex (we need it for modify_request_for_proxy)
     struct Backend backend_copy;
     strncpy(backend_copy.host, candidate->host, sizeof(backend_copy.host) - 1);
     backend_copy.host[sizeof(backend_copy.host) - 1] = '\0';
@@ -107,8 +105,6 @@ void handle_client(int client_socket, char *recv_buffer,
 
     pthread_mutex_unlock(&backend_mutex);
 
-    // Modify request to add proxy headers (X-Forwarded-For, Host, etc.)
-    // This doesn't need mutex protection as it only modifies the request string
     char *modified_request = modify_request_for_proxy(recv_buffer, &req, client_ip, &backend_copy);
     if (!modified_request) {
         log_error("server", "request_modification_failed", 
@@ -119,17 +115,13 @@ void handle_client(int client_socket, char *recv_buffer,
 
     forward_result = forward_to_backend(candidate, modified_request, 
                                        &backend_response, &backend_response_size);
-    
-    // Free the modified request after forwarding
     free(modified_request);
     
     if (forward_result == 0) {
       used_backend = candidate;
       pthread_mutex_lock(&backend_mutex);
-      // If backend was inactive but now works, mark it active again
       if (!candidate->is_active) {
         candidate->is_active = true;
-        // Find the index and reset current weight when backend recovers
         for (int i = 0; i < backend_pool.count; i++) {
           if (&backend_pool.backends[i] == candidate) {
             backend_pool.current_weights[i] = candidate->weight;
@@ -143,7 +135,6 @@ void handle_client(int client_socket, char *recv_buffer,
       break;
     }
 
-    // forward_to_backend already logs and may mark backend inactive.
     char error_msg[256];
     snprintf(error_msg, sizeof(error_msg), 
              "Failed to forward request to backend %s:%d, trying next if available",
@@ -152,19 +143,19 @@ void handle_client(int client_socket, char *recv_buffer,
     attempts++;
   }
 
-  // Note: backend_mutex is already unlocked at this point
-
   char backend_with_port[100];
 
   if (used_backend && forward_result == 0 && backend_response && backend_response_size > 0) {
     snprintf(backend_with_port, sizeof(backend_with_port), "%s:%d",
              used_backend->host, used_backend->port);
 
-    // Forward the backend's HTTP response directly to the client
     ssize_t sent = send(client_socket, backend_response, backend_response_size, 0);
     
     if (sent < 0) {
-      log_error("server", "send_to_client_failed", "Failed to send backend response to client");
+      char err_msg[256];
+      snprintf(err_msg, sizeof(err_msg), "Failed to send backend response to client: %s (errno: %d)",
+               strerror(errno), errno);
+      log_error("server", "send_to_client_failed", err_msg);
     } else if (sent != backend_response_size) {
       log_message(LOG_WARNING, "Partial send to client (%zd/%zd bytes)", 
                  sent, backend_response_size);
@@ -172,39 +163,33 @@ void handle_client(int client_socket, char *recv_buffer,
       log_message(LOG_DEBUG, "Successfully forwarded %zd bytes from backend to client", sent);
     }
 
-    // Extract status code from response for logging (simple parsing)
-    int status_code = 200; // default
+    int status_code = 200;
     if (backend_response_size > 12) {
-      // HTTP response starts with "HTTP/1.x STATUS_CODE"
-      // Try to parse status code from response
       char status_str[4] = {0};
       const char *status_pos = strstr(backend_response, "HTTP/");
       if (status_pos) {
-        // Find space after HTTP version, then read status code
         const char *code_start = strchr(status_pos, ' ');
         if (code_start) {
-          code_start++; // skip space
+          code_start++;
           strncpy(status_str, code_start, 3);
+          status_str[3] = '\0';
           status_code = atoi(status_str);
         }
       }
     }
 
     log_request(req.method, req.path, backend_with_port, status_code);
-    
-    // Free the backend response buffer
     free(backend_response);
     backend_response = NULL;
   } else {
-    // All backends failed for this request
     struct Response res;
     res.status_code = 502;
-    strcpy(res.content_type, "application/json");
+    strncpy(res.content_type, "application/json", sizeof(res.content_type) - 1);
+    res.content_type[sizeof(res.content_type) - 1] = '\0';
     snprintf(res.body, sizeof(res.body),
              "{\"error\": \"Bad Gateway\", \"message\": \"Failed to forward to "
              "any backend server\"}");
 
-    // Best-effort backend string (may be "none" if nothing active)
     if (any_active) {
       snprintf(backend_with_port, sizeof(backend_with_port), "multiple/failed");
     } else {
@@ -214,15 +199,23 @@ void handle_client(int client_socket, char *recv_buffer,
     send_response(client_socket, &res);
     log_request(req.method, req.path, backend_with_port, 502);
     
-    // Clean up if we have a partial response
     if (backend_response) {
       free(backend_response);
       backend_response = NULL;
     }
   }
 
-  free(req.body);
-  close(client_socket);
+  if (req.body) {
+    free(req.body);
+    req.body = NULL;
+  }
+  
+  if (close(client_socket) < 0) {
+    char err_msg[256];
+    snprintf(err_msg, sizeof(err_msg), "Failed to close client socket: %s (errno: %d)",
+             strerror(errno), errno);
+    log_error("server", "close_failed", err_msg);
+  }
   log_message(LOG_DEBUG, "Client connection closed");
 }
 
@@ -245,15 +238,20 @@ int start_server() {
 
   server_socket = socket(AF_INET, SOCK_STREAM, 0);
   if (server_socket == -1) {
-    log_error("server", "socket_creation_failed",
-              "Failed to create server socket");
+    char err_msg[256];
+    snprintf(err_msg, sizeof(err_msg), "Failed to create server socket: %s (errno: %d)",
+             strerror(errno), errno);
+    log_error("server", "socket_creation_failed", err_msg);
     return FAILURE;
   }
 
   int opt = 1;
   if (setsockopt(server_socket, SOL_SOCKET, SO_REUSEADDR, &opt, sizeof(opt)) <
       0) {
-    log_error("server", "setsockopt_failed", "Failed to set socket options");
+    char err_msg[256];
+    snprintf(err_msg, sizeof(err_msg), "Failed to set socket options: %s (errno: %d)",
+             strerror(errno), errno);
+    log_error("server", "setsockopt_failed", err_msg);
     close(server_socket);
     return FAILURE;
   }
@@ -264,13 +262,19 @@ int start_server() {
 
   if (bind(server_socket, (struct sockaddr *)&server_addr,
            sizeof(server_addr)) == -1) {
-    log_error("server", "bind_failed", "Failed to bind socket to port");
+    char err_msg[256];
+    snprintf(err_msg, sizeof(err_msg), "Failed to bind socket to port %d: %s (errno: %d)",
+             SERVER_PORT, strerror(errno), errno);
+    log_error("server", "bind_failed", err_msg);
     close(server_socket);
     return FAILURE;
   }
 
   if (listen(server_socket, 5) == -1) {
-    log_error("server", "listen_failed", "Failed to listen on socket");
+    char err_msg[256];
+    snprintf(err_msg, sizeof(err_msg), "Failed to listen on socket: %s (errno: %d)",
+             strerror(errno), errno);
+    log_error("server", "listen_failed", err_msg);
     close(server_socket);
     return FAILURE;
   }
@@ -281,8 +285,10 @@ int start_server() {
   while (1) {
     client_socket = accept(server_socket, (struct sockaddr *)&client_addr, &c);
     if (client_socket == -1) {
-      log_error("server", "accept_failed",
-                "Failed to accept client connection");
+      char err_msg[256];
+      snprintf(err_msg, sizeof(err_msg), "Failed to accept client connection: %s (errno: %d)",
+               strerror(errno), errno);
+      log_error("server", "accept_failed", err_msg);
       continue;
     }
 
@@ -291,16 +297,23 @@ int start_server() {
       if (bytes_recv == 0) {
         log_message(LOG_WARNING, "Client disconnected before sending data");
       } else {
-        log_error("server", "receive_failed",
-                  "Error receiving data from client");
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Error receiving data from client: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("server", "receive_failed", err_msg);
       }
+      close(client_socket);
+      continue;
+    }
+    
+    if (bytes_recv >= BUFFER_SIZE - 1) {
+      log_error("server", "buffer_overflow", "Received data exceeds buffer size");
       close(client_socket);
       continue;
     }
 
     recv_buffer[bytes_recv] = '\0';
 
-    // Allocate memory for thread data
     thread_data_t *data = malloc(sizeof(thread_data_t));
     if (data == NULL) {
       log_error("server", "malloc",
