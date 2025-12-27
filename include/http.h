@@ -3,6 +3,9 @@
 
 #include <stddef.h>
 
+// Forward declaration
+struct Backend;
+
 #define MAX_HEADERS 50
 
 struct Header {
@@ -28,6 +31,13 @@ struct Response {
 // HTTP Functions
 void parse_http_request(char *recv_buffer, struct Request *req);
 void send_response(int client_socket, struct Response *res);
+
+// Proxy compatibility functions
+// Returns a newly allocated string that must be freed by the caller
+char* modify_request_for_proxy(const char *original_request, 
+                                struct Request *req,
+                                const char *client_ip,
+                                struct Backend *backend);
 
 #endif
 

@@ -128,3 +128,249 @@ Content-Type: application/json
 2025-12-25 13:27:45: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
 2025-12-25 13:27:45: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
 2025-12-25 13:27:45: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:48:03: [[32mINFO[97m]: =========================================
+2025-12-27 01:48:03: [[32mINFO[97m]: Load Balancer Server Starting
+2025-12-27 01:48:03: [[32mINFO[97m]: =========================================
+2025-12-27 01:48:03: [[32mINFO[97m]: Initialized 3 backend servers
+2025-12-27 01:48:03: [[34mDEBUG[97m]: Backend 1: 127.0.0.1:9001 (active: true, weight: 1)
+2025-12-27 01:48:03: [[34mDEBUG[97m]: Backend 2: 127.0.0.1:9002 (active: true, weight: 1)
+2025-12-27 01:48:03: [[34mDEBUG[97m]: Backend 3: 127.0.0.1:9003 (active: true, weight: 1)
+2025-12-27 01:48:03: [[32mINFO[97m]: Successfully initialized backend pool with 3 servers
+2025-12-27 01:48:03: [[32mINFO[97m]: Backend 1: 127.0.0.1:9001 (Weight: 1, Active: true)
+2025-12-27 01:48:03: [[32mINFO[97m]: Backend 2: 127.0.0.1:9002 (Weight: 1, Active: true)
+2025-12-27 01:48:03: [[32mINFO[97m]: Backend 3: 127.0.0.1:9003 (Weight: 1, Active: true)
+2025-12-27 01:48:03: [[34mDEBUG[97m]: Selected backend 127.0.0.1:9001 (index: 0, connections: 0)
+2025-12-27 01:48:03: [[32mINFO[97m]: Initial backend selection test: 127.0.0.1:9001
+2025-12-27 01:48:03: [[32mINFO[97m]: Server configuration loaded
+2025-12-27 01:48:03: [[32mINFO[97m]: Starting server...
+2025-12-27 01:48:03: [[32mINFO[97m]: Server listening on port 8080
+2025-12-27 01:48:03: [[32mINFO[97m]: Server ready to accept connections
+2025-12-27 01:48:13: [[32mINFO[97m]: Received request from 127.0.0.1:52197
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:48:13: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:48:13: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Sent 127 bytes to backend 127.0.0.1:9001
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Backend closed connection after sending 177 bytes
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Received 177 bytes from backend 127.0.0.1:9001
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:48:13 GMT
+Content-Type: application/json
+
+{\"backend\": \"9001\", \"message\": \"Hello from backend\"}
+2025-12-27 01:48:13: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Successfully forwarded 177 bytes from backend to client
+2025-12-27 01:48:13: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:48:13: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:49:50: [[32mINFO[97m]: Received request from 127.0.0.1:52238
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:49:50: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:49:50: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Sent 127 bytes to backend 127.0.0.1:9001
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Backend closed connection after sending 360 bytes
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Received 360 bytes from backend 127.0.0.1:9001
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:49:50 GMT
+Content-Type: application/json
+
+{
+  \"backend\": \"9001\",
+  \"message\": \"Hello from backend\",
+  \"headers_receiv
+2025-12-27 01:49:50: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Successfully forwarded 360 bytes from backend to client
+2025-12-27 01:49:50: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:49:50: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:50:06: [[32mINFO[97m]: Received request from 127.0.0.1:52247
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:50:06: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: 192.168.1.100, 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:50:06: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Sent 142 bytes to backend 127.0.0.1:9001
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Backend closed connection after sending 375 bytes
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Received 375 bytes from backend 127.0.0.1:9001
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:50:06 GMT
+Content-Type: application/json
+
+{
+  \"backend\": \"9001\",
+  \"message\": \"Hello from backend\",
+  \"headers_receiv
+2025-12-27 01:50:06: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Successfully forwarded 375 bytes from backend to client
+2025-12-27 01:50:06: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:50:06: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:50:14: [[32mINFO[97m]: Received request from 127.0.0.1:52253
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:50:14: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: proxy1.example.com, 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:50:14: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Sent 147 bytes to backend 127.0.0.1:9001
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Backend closed connection after sending 380 bytes
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Received 380 bytes from backend 127.0.0.1:9001
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:50:14 GMT
+Content-Type: application/json
+
+{
+  \"backend\": \"9001\",
+  \"message\": \"Hello from backend\",
+  \"headers_receiv
+2025-12-27 01:50:14: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Successfully forwarded 380 bytes from backend to client
+2025-12-27 01:50:14: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:50:14: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:50:48: [[32mINFO[97m]: Received request from 127.0.0.1:52267
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:50:48: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:50:48: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Sent 127 bytes to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Backend closed connection after sending 360 bytes
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Received 360 bytes from backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:50:48 GMT
+Content-Type: application/json
+
+{
+  \"backend\": \"9001\",
+  \"message\": \"Hello from backend\",
+  \"headers_receiv
+2025-12-27 01:50:48: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Successfully forwarded 360 bytes from backend to client
+2025-12-27 01:50:48: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:50:48: [[32mINFO[97m]: Received request from 127.0.0.1:52270
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:50:48: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: 192.168.1.100, 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:50:48: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Sent 142 bytes to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Backend closed connection after sending 375 bytes
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Received 375 bytes from backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:50:48 GMT
+Content-Type: application/json
+
+{
+  \"backend\": \"9001\",
+  \"message\": \"Hello from backend\",
+  \"headers_receiv
+2025-12-27 01:50:48: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Successfully forwarded 375 bytes from backend to client
+2025-12-27 01:50:48: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:50:48: [[32mINFO[97m]: Received request from 127.0.0.1:52273
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:50:48: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:50:48: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Sent 127 bytes to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Backend closed connection after sending 360 bytes
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Received 360 bytes from backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:50:48 GMT
+Content-Type: application/json
+
+{
+  \"backend\": \"9001\",
+  \"message\": \"Hello from backend\",
+  \"headers_receiv
+2025-12-27 01:50:48: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Successfully forwarded 360 bytes from backend to client
+2025-12-27 01:50:48: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Client connection closed
+2025-12-27 01:50:48: [[32mINFO[97m]: Received request from 127.0.0.1:52276
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request: GET / HTTP/1.1
+2025-12-27 01:50:48: [[32mINFO[97m]: Trying backend 127.0.0.1:9001 for request GET / (active: true)
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Forwarding request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Request content (first 200 chars): GET / HTTP/1.1
+Host: 127.0.0.1:9001
+X-Forwarded-For: 127.0.0.1
+X-Real-IP: 127.0.0.1
+User-Agent: curl/8.7.1
+Accept: */*
+
+
+2025-12-27 01:50:48: [[32mINFO[97m]: Connected to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Sent 127 bytes to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Backend closed connection after sending 360 bytes
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Received 360 bytes from backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Response (first 200 chars): HTTP/1.0 200 OK
+Server: SimpleHTTP/0.6 Python/3.9.6
+Date: Fri, 26 Dec 2025 20:50:48 GMT
+Content-Type: application/json
+
+{
+  \"backend\": \"9001\",
+  \"message\": \"Hello from backend\",
+  \"headers_receiv
+2025-12-27 01:50:48: [[32mINFO[97m]: Successfully forwarded request to backend 127.0.0.1:9001
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Successfully forwarded 360 bytes from backend to client
+2025-12-27 01:50:48: [[32mINFO[97m]: request: GET: /: 127.0.0.1:9001: 200}
+2025-12-27 01:50:48: [[34mDEBUG[97m]: Client connection closed
