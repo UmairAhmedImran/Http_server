@@ -1,3 +1,4 @@
-/server.log
-build/*
+server.log
+build/
+build/server
 
