@@ -11,31 +11,32 @@
 #include <time.h>
 #include <pthread.h>
 
-// External mutex from server.c for thread safety in health check
 extern pthread_mutex_t backend_mutex;
 
 void init_backends(struct BackendPool *pool) {
-    // Adding values to the BackendPool struct
     pool->count = 3;
     pool->current_index = 0;
 
-    strcpy(pool->backends[0].host, "127.0.0.1");
+    strncpy(pool->backends[0].host, "127.0.0.1", sizeof(pool->backends[0].host) - 1);
+    pool->backends[0].host[sizeof(pool->backends[0].host) - 1] = '\0';
     pool->backends[0].port = 9001;
-    pool->backends[0].weight = 3;  // Higher weight = more requests
+    pool->backends[0].weight = 3;
     pool->backends[0].active_connections = 0;
     pool->backends[0].is_active = true;
-    pool->current_weights[0] = pool->backends[0].weight;  // Initialize current weight
+    pool->current_weights[0] = pool->backends[0].weight;
 
-    strcpy(pool->backends[1].host, "127.0.0.1");
+    strncpy(pool->backends[1].host, "127.0.0.1", sizeof(pool->backends[1].host) - 1);
+    pool->backends[1].host[sizeof(pool->backends[1].host) - 1] = '\0';
     pool->backends[1].port = 9002;
-    pool->backends[1].weight = 2;  // Medium weight
+    pool->backends[1].weight = 2;
     pool->backends[1].active_connections = 0;
     pool->backends[1].is_active = true;
     pool->current_weights[1] = pool->backends[1].weight;
 
-    strcpy(pool->backends[2].host, "127.0.0.1");
+    strncpy(pool->backends[2].host, "127.0.0.1", sizeof(pool->backends[2].host) - 1);
+    pool->backends[2].host[sizeof(pool->backends[2].host) - 1] = '\0';
     pool->backends[2].port = 9003;
-    pool->backends[2].weight = 1;  // Lower weight
+    pool->backends[2].weight = 1;
     pool->backends[2].active_connections = 0;
     pool->backends[2].is_active = true;
     pool->current_weights[2] = pool->backends[2].weight;
@@ -58,7 +59,6 @@ struct Backend *get_next_backend(struct BackendPool *pool) {
         return NULL;
     }
 
-    // Calculate total weight of all active backends
     int total_weight = 0;
     for (int i = 0; i < pool->count; i++) {
         if (pool->backends[i].is_active) {
@@ -71,16 +71,9 @@ struct Backend *get_next_backend(struct BackendPool *pool) {
         return NULL;
     }
 
-    // Weighted Round-Robin Algorithm:
-    // 1. Find backend with highest current weight
-    // 2. Subtract total weight from selected backend's current weight
-    // 3. Add each backend's weight to its current weight
-    // This ensures proportional distribution based on weights
-
     int max_weight_index = -1;
     int max_weight = -1;
 
-    // Find backend with highest current weight (only active backends)
     for (int i = 0; i < pool->count; i++) {
         if (pool->backends[i].is_active && pool->current_weights[i] > max_weight) {
             max_weight = pool->current_weights[i];
@@ -93,10 +86,8 @@ struct Backend *get_next_backend(struct BackendPool *pool) {
         return NULL;
     }
 
-    // Update weights: subtract total weight from selected backend
     pool->current_weights[max_weight_index] -= total_weight;
 
-    // Add each backend's weight to its current weight (only for active backends)
     for (int i = 0; i < pool->count; i++) {
         if (pool->backends[i].is_active) {
             pool->current_weights[i] += pool->backends[i].weight;
@@ -123,7 +114,6 @@ int forward_to_backend(struct Backend *backend, const char *request,
         return -1;
     }
 
-    // Initialize output parameters
     *response_buffer = NULL;
     *response_size = 0;
 
@@ -133,7 +123,10 @@ int forward_to_backend(struct Backend *backend, const char *request,
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-        log_error("backend", "socket_creation_failed", "Failed to create socket for backend connection");
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to create socket for backend connection: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("backend", "socket_creation_failed", err_msg);
         return -1;
     }
 
@@ -142,7 +135,10 @@ int forward_to_backend(struct Backend *backend, const char *request,
     serv_addr.sin_port = htons(backend->port);
     
     if (inet_pton(AF_INET, backend->host, &serv_addr.sin_addr) <= 0) {
-        log_error("backend", "invalid_address", "Invalid backend address");
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Invalid backend address '%s': %s (errno: %d)",
+                 backend->host, strerror(errno), errno);
+        log_error("backend", "invalid_address", err_msg);
         close(sockfd);
         return -1;
     }
@@ -160,7 +156,7 @@ int forward_to_backend(struct Backend *backend, const char *request,
                  strerror(errno), errno);
         log_error("backend", "connection_failed", err_msg);
         close(sockfd);
-        backend->is_active = false;  // Mark backend as inactive/dead
+        backend->is_active = false;
         log_message(LOG_WARNING, "Marked backend %s:%d as inactive due to connection failure", 
                    backend->host, backend->port);
         return -1;
@@ -169,10 +165,19 @@ int forward_to_backend(struct Backend *backend, const char *request,
     log_message(LOG_INFO, "Connected to backend %s:%d", backend->host, backend->port);
 
     size_t request_len = strlen(request);
+    if (request_len == 0) {
+        log_error("backend", "empty_request", "Cannot send empty request to backend");
+        close(sockfd);
+        return -1;
+    }
+    
     ssize_t sent_bytes = send(sockfd, request, request_len, 0);
     
     if (sent_bytes < 0) {
-        log_error("backend", "send_failed", "Failed to send request to backend");
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to send request to backend: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("backend", "send_failed", err_msg);
         close(sockfd);
         backend->is_active = false;
         log_message(LOG_WARNING, "Marked backend %s:%d as inactive due to send failure", 
@@ -188,7 +193,6 @@ int forward_to_backend(struct Backend *backend, const char *request,
     log_message(LOG_DEBUG, "Sent %zd bytes to backend %s:%d", 
                sent_bytes, backend->host, backend->port);
 
-    // Allocate buffer for response (start with 8KB, can grow if needed)
     size_t buffer_size = 8192;
     char *temp_buffer = malloc(buffer_size);
     if (!temp_buffer) {
@@ -200,12 +204,7 @@ int forward_to_backend(struct Backend *backend, const char *request,
     ssize_t total_received = 0;
     ssize_t received_bytes;
 
-    // Read response in chunks until connection closes or error
-    // For HTTP/1.0, the server typically sends the full response and closes the connection
-    // For HTTP/1.1, we need to check Content-Length or Connection: close
-    // We'll read until recv returns 0 (connection closed) or we get an error
     while (1) {
-        // Check if we need more space
         if (total_received >= (ssize_t)(buffer_size - 1)) {
             buffer_size *= 2;
             char *new_buffer = realloc(temp_buffer, buffer_size);
@@ -222,19 +221,16 @@ int forward_to_backend(struct Backend *backend, const char *request,
                              buffer_size - total_received - 1, 0);
         
         if (received_bytes < 0) {
-            // Check if it's a timeout or actual error
-            if (errno == EAGAIN || errno == EWOULDBLOCK) {
-                // Timeout - for HTTP/1.0, if we've received some data, assume it's complete
-                // The server might have closed the connection but we didn't see the 0 return
+            int saved_errno = errno;
+            if (saved_errno == EAGAIN || saved_errno == EWOULDBLOCK) {
                 if (total_received > 0) {
                     log_message(LOG_DEBUG, "Receive timeout after %zd bytes, assuming response is complete", 
                                total_received);
                     break;
                 }
-                // No data received and timeout - this is an error
                 char err_msg[256];
                 snprintf(err_msg, sizeof(err_msg), "Timeout waiting for response from backend: %s (errno: %d)", 
-                         strerror(errno), errno);
+                         strerror(saved_errno), saved_errno);
                 log_error("backend", "receive_timeout", err_msg);
                 free(temp_buffer);
                 close(sockfd);
@@ -245,7 +241,7 @@ int forward_to_backend(struct Backend *backend, const char *request,
             }
             char err_msg[256];
             snprintf(err_msg, sizeof(err_msg), "Failed to receive response from backend: %s (errno: %d)", 
-                     strerror(errno), errno);
+                     strerror(saved_errno), saved_errno);
             log_error("backend", "receive_failed", err_msg);
             free(temp_buffer);
             close(sockfd);
@@ -256,9 +252,15 @@ int forward_to_backend(struct Backend *backend, const char *request,
         }
 
         if (received_bytes == 0) {
-            // Connection closed by backend - we've received all data
             log_message(LOG_DEBUG, "Backend closed connection after sending %zd bytes", total_received);
             break;
+        }
+
+        if (total_received + received_bytes > buffer_size - 1) {
+            log_error("backend", "response_too_large", "Backend response exceeds maximum buffer size");
+            free(temp_buffer);
+            close(sockfd);
+            return -1;
         }
 
         total_received += received_bytes;
@@ -272,25 +274,26 @@ int forward_to_backend(struct Backend *backend, const char *request,
         return -1;
     }
 
-    // Null-terminate for logging (but keep binary data intact for HTTP response)
     temp_buffer[total_received] = '\0';
     log_message(LOG_DEBUG, "Received %zd bytes from backend %s:%d", 
                total_received, backend->host, backend->port);
     log_message(LOG_DEBUG, "Response (first 200 chars): %.200s", temp_buffer);
 
-    close(sockfd);
+    if (close(sockfd) < 0) {
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to close backend socket: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("backend", "close_failed", err_msg);
+    }
     log_message(LOG_INFO, "Successfully forwarded request to backend %s:%d", 
                backend->host, backend->port);
     
-    // Return the response buffer and size
     *response_buffer = temp_buffer;
     *response_size = total_received;
     
     return 0;
 }
 
-// Health check function: Check if backend is alive using TCP connect()
-// Returns 1 if backend is alive, 0 if dead
 int health_check_backend(struct Backend *backend) {
     if (!backend) {
         return 0;
@@ -298,8 +301,10 @@ int health_check_backend(struct Backend *backend) {
 
     int sockfd = socket(AF_INET, SOCK_STREAM, 0);
     if (sockfd < 0) {
-        log_error("health_check", "socket_creation_failed", 
-                  "Failed to create socket for health check");
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to create socket for health check: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("health_check", "socket_creation_failed", err_msg);
         return 0;
     }
 
@@ -308,35 +313,44 @@ int health_check_backend(struct Backend *backend) {
     serv_addr.sin_port = htons(backend->port);
     
     if (inet_pton(AF_INET, backend->host, &serv_addr.sin_addr) <= 0) {
-        log_error("health_check", "invalid_address", "Invalid backend address for health check");
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Invalid backend address '%s' for health check: %s (errno: %d)",
+                 backend->host, strerror(errno), errno);
+        log_error("health_check", "invalid_address", err_msg);
         close(sockfd);
         return 0;
     }
 
-    // Set short timeout for health check (2 seconds)
     struct timeval timeout;
     timeout.tv_sec = 2;
     timeout.tv_usec = 0;
-    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
-    setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-
-    // Try to connect
-    int result = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
-    close(sockfd);
-
-    if (result == 0) {
-        // Connection successful - backend is alive
-        return 1;
-    } else {
-        // Connection failed - backend is dead
-        return 0;
+    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to set receive timeout for health check: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("health_check", "setsockopt_failed", err_msg);
     }
+    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to set send timeout for health check: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("health_check", "setsockopt_failed", err_msg);
+    }
+
+    int result = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    if (close(sockfd) < 0) {
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to close health check socket: %s (errno: %d)",
+                 strerror(errno), errno);
+        log_error("health_check", "close_failed", err_msg);
+    }
+
+    return (result == 0) ? 1 : 0;
 }
 
-// Health check thread function - runs periodically to check all backends
 void* health_check_thread(void* arg) {
     struct BackendPool *pool = (struct BackendPool *)arg;
-    const int health_check_interval = 10; // Check every 10 seconds
+    const int health_check_interval = 10;
     
     log_message(LOG_INFO, "Health check thread started (interval: %d seconds)", health_check_interval);
 
@@ -349,23 +363,19 @@ void* health_check_thread(void* arg) {
             struct Backend *backend = &pool->backends[i];
             bool was_active = backend->is_active;
             
-            // Perform health check
             pthread_mutex_unlock(&backend_mutex);
             int is_alive = health_check_backend(backend);
             pthread_mutex_lock(&backend_mutex);
 
             if (is_alive) {
                 if (!was_active) {
-                    // Backend recovered
                     backend->is_active = true;
-                    // Reset current weight when backend recovers
                     pool->current_weights[i] = backend->weight;
                     log_message(LOG_INFO, "Backend %s:%d is now ACTIVE (recovered from health check)", 
                                backend->host, backend->port);
                 }
             } else {
                 if (was_active) {
-                    // Backend died
                     backend->is_active = false;
                     log_message(LOG_WARNING, "Backend %s:%d is now INACTIVE (health check failed)", 
                                backend->host, backend->port);

@@ -6,7 +6,6 @@
 #include <signal.h>
 #include <pthread.h>
 
-// Define backend_pool as global so server.c can access it
 struct BackendPool backend_pool;
 
 void signal_handler(int sig) {
@@ -52,7 +51,6 @@ int main() {
     
     log_message(LOG_INFO, "Server configuration loaded");
     
-    // Start health check thread
     pthread_t health_check_tid;
     pthread_attr_t attr;
     pthread_attr_init(&attr);
