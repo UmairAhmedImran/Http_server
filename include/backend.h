@@ -16,6 +16,7 @@ struct BackendPool {
     struct Backend backends[10];
     int count;
     int current_index;
+    int current_weights[10];  // Current weights for weighted round-robin
 };
 
 void init_backends(struct BackendPool *pool);

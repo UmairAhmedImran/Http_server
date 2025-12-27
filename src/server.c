@@ -80,30 +80,24 @@ void handle_client(int client_socket, char *recv_buffer,
   struct Backend *used_backend = NULL;
   char *backend_response = NULL;
   ssize_t backend_response_size = 0;
+  int max_attempts = backend_pool.count;  // Try all backends if needed
+  int attempts = 0;
 
-  pthread_mutex_lock(&backend_mutex);
+  // Try backends using weighted round-robin with failover
+  while (attempts < max_attempts) {
+    pthread_mutex_lock(&backend_mutex);
 
-  // Try each backend, including inactive ones (they might have recovered)
-  for (int i = 0; i < backend_pool.count; i++) {
-    struct Backend *candidate = &backend_pool.backends[i];
-
-    // Skip inactive backends only if we have active ones to try first
-    // But if all are inactive, try them anyway (they might have recovered)
-    int has_active = 0;
-    for (int j = 0; j < backend_pool.count; j++) {
-      if (backend_pool.backends[j].is_active) {
-        has_active = 1;
-        break;
-      }
-    }
+    // Use weighted round-robin to select the next backend
+    struct Backend *candidate = get_next_backend(&backend_pool);
     
-    if (!candidate->is_active && has_active) {
-      continue; // Skip inactive backends if we have active ones
+    if (!candidate) {
+      pthread_mutex_unlock(&backend_mutex);
+      log_error("server", "no_backend_available", "No backends available for load balancing");
+      break;
     }
 
-    log_message(LOG_INFO, "Trying backend %s:%d for request %s %s (active: %s)",
-                candidate->host, candidate->port, req.method, req.path,
-                candidate->is_active ? "true" : "false");
+    log_message(LOG_INFO, "Selected backend %s:%d for request %s %s (weight: %d)",
+                candidate->host, candidate->port, req.method, req.path, candidate->weight);
 
     // Copy backend info before unlocking mutex (we need it for modify_request_for_proxy)
     struct Backend backend_copy;
@@ -119,7 +113,7 @@ void handle_client(int client_socket, char *recv_buffer,
     if (!modified_request) {
         log_error("server", "request_modification_failed", 
                   "Failed to modify request for proxy compatibility");
-        pthread_mutex_lock(&backend_mutex);
+        attempts++;
         continue;
     }
 
@@ -129,24 +123,36 @@ void handle_client(int client_socket, char *recv_buffer,
     // Free the modified request after forwarding
     free(modified_request);
     
-    pthread_mutex_lock(&backend_mutex);
     if (forward_result == 0) {
       used_backend = candidate;
+      pthread_mutex_lock(&backend_mutex);
       // If backend was inactive but now works, mark it active again
       if (!candidate->is_active) {
         candidate->is_active = true;
+        // Find the index and reset current weight when backend recovers
+        for (int i = 0; i < backend_pool.count; i++) {
+          if (&backend_pool.backends[i] == candidate) {
+            backend_pool.current_weights[i] = candidate->weight;
+            break;
+          }
+        }
         log_message(LOG_INFO, "Backend %s:%d recovered and is now active", 
                    candidate->host, candidate->port);
       }
+      pthread_mutex_unlock(&backend_mutex);
       break;
     }
 
     // forward_to_backend already logs and may mark backend inactive.
-    log_error("server", "forward_failed",
-              "Failed to forward request to backend, trying next if available");
+    char error_msg[256];
+    snprintf(error_msg, sizeof(error_msg), 
+             "Failed to forward request to backend %s:%d, trying next if available",
+             candidate->host, candidate->port);
+    log_error("server", "forward_failed", error_msg);
+    attempts++;
   }
 
-  pthread_mutex_unlock(&backend_mutex);
+  // Note: backend_mutex is already unlocked at this point
 
   char backend_with_port[100];
 
