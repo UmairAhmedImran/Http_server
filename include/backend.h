@@ -9,7 +9,7 @@ struct Backend {
     int port;
     int weight;
     int active_connections;
-    bool is_active;
+    bool is_active;   // Backend health/availability status (set by health checks and request failures)
 };
 
 struct BackendPool {
@@ -25,5 +25,8 @@ struct Backend *get_next_backend(struct BackendPool *pool);
 // Returns 0 on success, -1 on failure
 int forward_to_backend(struct Backend *backend, const char *request, 
                        char **response_buffer, ssize_t *response_size);
+// Health checking functions
+int health_check_backend(struct Backend *backend);
+void* health_check_thread(void* arg);
 
 #endif

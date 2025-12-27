@@ -136,7 +136,7 @@ void handle_client(int client_socket, char *recv_buffer,
             break;
           }
         }
-        log_message(LOG_INFO, "Backend %s:%d recovered and is now active", 
+        log_message(LOG_INFO, "Backend %s:%d recovered and is now active (request succeeded)", 
                    candidate->host, candidate->port);
       }
       pthread_mutex_unlock(&backend_mutex);
