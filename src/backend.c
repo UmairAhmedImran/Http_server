@@ -16,21 +16,24 @@ void init_backends(struct BackendPool *pool) {
 
     strcpy(pool->backends[0].host, "127.0.0.1");
     pool->backends[0].port = 9001;
-    pool->backends[0].weight = 1;
+    pool->backends[0].weight = 3;  // Higher weight = more requests
     pool->backends[0].active_connections = 0;
     pool->backends[0].is_active = true;
+    pool->current_weights[0] = pool->backends[0].weight;  // Initialize current weight
 
     strcpy(pool->backends[1].host, "127.0.0.1");
     pool->backends[1].port = 9002;
-    pool->backends[1].weight = 1;
+    pool->backends[1].weight = 2;  // Medium weight
     pool->backends[1].active_connections = 0;
     pool->backends[1].is_active = true;
+    pool->current_weights[1] = pool->backends[1].weight;
 
     strcpy(pool->backends[2].host, "127.0.0.1");
     pool->backends[2].port = 9003;
-    pool->backends[2].weight = 1;
+    pool->backends[2].weight = 1;  // Lower weight
     pool->backends[2].active_connections = 0;
     pool->backends[2].is_active = true;
+    pool->current_weights[2] = pool->backends[2].weight;
 
     log_message(LOG_INFO, "Initialized %d backend servers", pool->count);
     
@@ -50,30 +53,57 @@ struct Backend *get_next_backend(struct BackendPool *pool) {
         return NULL;
     }
 
-    int attempts = 0;
-
-    // if backends count is greater than 0,
-    // get the current_index and assign to pool 
-    // and repeat to find an active backend and if not found show error
-    while (attempts < pool->count) {
-        struct Backend *backend = &pool->backends[pool->current_index];
-        
-        if (backend->is_active) {
-            log_message(LOG_DEBUG, "Selected backend %s:%d (index: %d, connections: %d)", 
-                       backend->host, backend->port, pool->current_index, backend->active_connections);
-            pool->current_index = (pool->current_index + 1) % pool->count;
-            return backend;
+    // Calculate total weight of all active backends
+    int total_weight = 0;
+    for (int i = 0; i < pool->count; i++) {
+        if (pool->backends[i].is_active) {
+            total_weight += pool->backends[i].weight;
         }
-
-        log_message(LOG_WARNING, "Backend %s:%d is inactive, skipping", 
-                   backend->host, backend->port);
-        
-        pool->current_index = (pool->current_index + 1) % pool->count;
-        attempts++;
     }
 
-    log_error("backend", "no_active_backends", "No active backends available in pool");
-    return NULL;
+    if (total_weight == 0) {
+        log_error("backend", "no_active_backends", "No active backends available in pool");
+        return NULL;
+    }
+
+    // Weighted Round-Robin Algorithm:
+    // 1. Find backend with highest current weight
+    // 2. Subtract total weight from selected backend's current weight
+    // 3. Add each backend's weight to its current weight
+    // This ensures proportional distribution based on weights
+
+    int max_weight_index = -1;
+    int max_weight = -1;
+
+    // Find backend with highest current weight (only active backends)
+    for (int i = 0; i < pool->count; i++) {
+        if (pool->backends[i].is_active && pool->current_weights[i] > max_weight) {
+            max_weight = pool->current_weights[i];
+            max_weight_index = i;
+        }
+    }
+
+    if (max_weight_index == -1) {
+        log_error("backend", "no_active_backends", "No active backends available in pool");
+        return NULL;
+    }
+
+    // Update weights: subtract total weight from selected backend
+    pool->current_weights[max_weight_index] -= total_weight;
+
+    // Add each backend's weight to its current weight
+    for (int i = 0; i < pool->count; i++) {
+        if (pool->backends[i].is_active) {
+            pool->current_weights[i] += pool->backends[i].weight;
+        }
+    }
+
+    struct Backend *selected = &pool->backends[max_weight_index];
+    log_message(LOG_DEBUG, "Selected backend %s:%d (index: %d, weight: %d, current_weight: %d)", 
+               selected->host, selected->port, max_weight_index, 
+               selected->weight, pool->current_weights[max_weight_index]);
+
+    return selected;
 }
 
 int forward_to_backend(struct Backend *backend, const char *request, 
