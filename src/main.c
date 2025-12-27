@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <signal.h>
+#include <pthread.h>
 
 // Define backend_pool as global so server.c can access it
 struct BackendPool backend_pool;
@@ -50,6 +51,21 @@ int main() {
     }
     
     log_message(LOG_INFO, "Server configuration loaded");
+    
+    // Start health check thread
+    pthread_t health_check_tid;
+    pthread_attr_t attr;
+    pthread_attr_init(&attr);
+    pthread_attr_setdetachstate(&attr, PTHREAD_CREATE_DETACHED);
+    
+    if (pthread_create(&health_check_tid, &attr, health_check_thread, &backend_pool) != 0) {
+        log_error("main", "health_check_thread_failed", "Failed to create health check thread");
+        printf("Warning: Failed to start health check thread\n");
+    } else {
+        log_message(LOG_INFO, "Health check thread started successfully");
+    }
+    pthread_attr_destroy(&attr);
+    
     log_message(LOG_INFO, "Starting server...");
     
     start_server();

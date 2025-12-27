@@ -8,6 +8,11 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <errno.h>
+#include <time.h>
+#include <pthread.h>
+
+// External mutex from server.c for thread safety in health check
+extern pthread_mutex_t backend_mutex;
 
 void init_backends(struct BackendPool *pool) {
     // Adding values to the BackendPool struct
@@ -91,7 +96,7 @@ struct Backend *get_next_backend(struct BackendPool *pool) {
     // Update weights: subtract total weight from selected backend
     pool->current_weights[max_weight_index] -= total_weight;
 
-    // Add each backend's weight to its current weight
+    // Add each backend's weight to its current weight (only for active backends)
     for (int i = 0; i < pool->count; i++) {
         if (pool->backends[i].is_active) {
             pool->current_weights[i] += pool->backends[i].weight;
@@ -155,7 +160,7 @@ int forward_to_backend(struct Backend *backend, const char *request,
                  strerror(errno), errno);
         log_error("backend", "connection_failed", err_msg);
         close(sockfd);
-        backend->is_active = false;  // Mark backend as inactive
+        backend->is_active = false;  // Mark backend as inactive/dead
         log_message(LOG_WARNING, "Marked backend %s:%d as inactive due to connection failure", 
                    backend->host, backend->port);
         return -1;
@@ -282,4 +287,94 @@ int forward_to_backend(struct Backend *backend, const char *request,
     *response_size = total_received;
     
     return 0;
+}
+
+// Health check function: Check if backend is alive using TCP connect()
+// Returns 1 if backend is alive, 0 if dead
+int health_check_backend(struct Backend *backend) {
+    if (!backend) {
+        return 0;
+    }
+
+    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
+    if (sockfd < 0) {
+        log_error("health_check", "socket_creation_failed", 
+                  "Failed to create socket for health check");
+        return 0;
+    }
+
+    struct sockaddr_in serv_addr;
+    serv_addr.sin_family = AF_INET;
+    serv_addr.sin_port = htons(backend->port);
+    
+    if (inet_pton(AF_INET, backend->host, &serv_addr.sin_addr) <= 0) {
+        log_error("health_check", "invalid_address", "Invalid backend address for health check");
+        close(sockfd);
+        return 0;
+    }
+
+    // Set short timeout for health check (2 seconds)
+    struct timeval timeout;
+    timeout.tv_sec = 2;
+    timeout.tv_usec = 0;
+    setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
+    setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
+
+    // Try to connect
+    int result = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    close(sockfd);
+
+    if (result == 0) {
+        // Connection successful - backend is alive
+        return 1;
+    } else {
+        // Connection failed - backend is dead
+        return 0;
+    }
+}
+
+// Health check thread function - runs periodically to check all backends
+void* health_check_thread(void* arg) {
+    struct BackendPool *pool = (struct BackendPool *)arg;
+    const int health_check_interval = 10; // Check every 10 seconds
+    
+    log_message(LOG_INFO, "Health check thread started (interval: %d seconds)", health_check_interval);
+
+    while (1) {
+        sleep(health_check_interval);
+
+        pthread_mutex_lock(&backend_mutex);
+        
+        for (int i = 0; i < pool->count; i++) {
+            struct Backend *backend = &pool->backends[i];
+            bool was_active = backend->is_active;
+            
+            // Perform health check
+            pthread_mutex_unlock(&backend_mutex);
+            int is_alive = health_check_backend(backend);
+            pthread_mutex_lock(&backend_mutex);
+
+            if (is_alive) {
+                if (!was_active) {
+                    // Backend recovered
+                    backend->is_active = true;
+                    // Reset current weight when backend recovers
+                    pool->current_weights[i] = backend->weight;
+                    log_message(LOG_INFO, "Backend %s:%d is now ACTIVE (recovered from health check)", 
+                               backend->host, backend->port);
+                }
+            } else {
+                if (was_active) {
+                    // Backend died
+                    backend->is_active = false;
+                    log_message(LOG_WARNING, "Backend %s:%d is now INACTIVE (health check failed)", 
+                               backend->host, backend->port);
+                }
+            }
+        }
+        
+        pthread_mutex_unlock(&backend_mutex);
+    }
+
+    return NULL;
 }
