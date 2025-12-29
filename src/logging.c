@@ -115,9 +115,7 @@ void log_request(const char *method, const char *path, const char *backend,
 
   char json_log[1200];
   snprintf(json_log, sizeof(json_log),
-           "%s: [%s]: request: "
-           "%s: %s: %s: "
-           "%d}",
+           "%s: [%s]: REQUEST: %s %s -> %s -> %d",
            timestamp, level_to_string(LOG_INFO), method, escaped_path,
            backend ? backend : "none", status_code);
 

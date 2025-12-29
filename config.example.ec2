@@ -1,0 +1,79 @@
+# Load Balancer Configuration File for EC2 Deployment
+# Format: host:port:weight
+# Lines starting with # are comments
+# Empty lines are ignored
+
+# ============================================
+# Configuration Examples
+# ============================================
+
+# Example 1: Backends on same EC2 instance (for testing)
+# Uncomment and use if all backends run on the same instance
+# 127.0.0.1:9001:3
+# 127.0.0.1:9002:2
+# 127.0.0.1:9003:1
+
+# Example 2: Backends on different EC2 instances (same VPC - use private IPs)
+# Replace with your actual backend private IPs
+# 10.0.1.10:8080:3
+# 10.0.1.11:8080:2
+# 10.0.1.12:8080:1
+
+# Example 3: Backends with public IPs (different VPCs or regions)
+# Replace with your actual backend public IPs
+# 54.123.45.67:8080:3
+# 54.123.45.68:8080:2
+# 54.123.45.69:8080:1
+
+# Example 4: Using domain names/URLs (RECOMMENDED for production)
+# The load balancer supports both IP addresses and domain names
+# Replace with your actual backend domain names
+# api1.example.com:8080:3
+# api2.example.com:8080:2
+# api3.example.com:8080:1
+
+# Example 5: Production URLs with HTTPS (port 443)
+# api.production.com:443:3
+# api2.production.com:443:2
+# api3.production.com:443:1
+
+# Example 6: Mixed configuration (local + remote + domains)
+# 127.0.0.1:9001:3
+# 10.0.1.20:8080:2
+# api.example.com:8080:1
+
+# ============================================
+# Your Configuration
+# ============================================
+# Edit below with your actual backend servers:
+
+# Backend 1 (50% of traffic - weight 3)
+# YOUR_BACKEND_1_IP:YOUR_BACKEND_1_PORT:3
+
+# Backend 2 (33% of traffic - weight 2)
+# YOUR_BACKEND_2_IP:YOUR_BACKEND_2_PORT:2
+
+# Backend 3 (17% of traffic - weight 1)
+# YOUR_BACKEND_3_IP:YOUR_BACKEND_3_PORT:1
+
+# ============================================
+# Weight Distribution Guide
+# ============================================
+# Weights determine traffic distribution:
+# - 3:2:1 = 50% : 33% : 17%
+# - 5:3:2 = 50% : 30% : 20%
+# - 1:1:1 = 33% : 33% : 33% (equal)
+# - 10:5:1 = 62.5% : 31.25% : 6.25%
+
+# ============================================
+# Notes
+# ============================================
+# - The load balancer supports BOTH IP addresses AND domain names/URLs
+# - Domain names are recommended for production (easier to manage, can change IPs)
+# - Use private IPs for backends in same VPC (faster, no data transfer costs)
+# - Use public IPs or domain names for backends in different VPCs or regions
+# - Ensure security groups allow traffic from load balancer to backends
+# - Ports must be accessible from load balancer instance
+# - Weights must be between 1 and 100
+# - Domain names will be resolved via DNS (make sure DNS is configured correctly)
+

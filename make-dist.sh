@@ -42,6 +42,7 @@ rsync -a --exclude='.git' \
          --exclude='.DS_Store' \
          --exclude='make-dist.sh' \
          --exclude='build-windows.sh' \
+         --exclude='deploy-ec2.sh' \
          . "${DISTDIR}/"
 
 # Update VERSION file

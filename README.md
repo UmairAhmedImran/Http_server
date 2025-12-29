@@ -89,6 +89,9 @@ See [INSTALL.md](INSTALL.md) for detailed installation instructions.
 **Platform-specific guides:**
 - [BUILD-MACOS.md](BUILD-MACOS.md) - macOS build instructions
 - [BUILD-WINDOWS.md](BUILD-WINDOWS.md) - Windows build instructions
+- [DEPLOY-EC2.md](DEPLOY-EC2.md) - EC2 deployment guide
+- [USER-GUIDE.md](USER-GUIDE.md) - User configuration guide
+- [EC2-QUICK-START.md](EC2-QUICK-START.md) - Quick EC2 setup
 
 ### Build Options
 
@@ -116,20 +119,34 @@ Create a `config` file in the project root directory with your backend servers:
 ```
 
 **Format**: `host:port:weight`
-- **host**: Backend server IP address or hostname
+- **host**: Backend server IP address, hostname, or domain name (e.g., `192.168.1.10` or `api.example.com`)
 - **port**: Backend server port number
 - **weight**: Traffic weight (1-100). Higher weight = more requests
 
-**Example**:
+**Examples**:
 ```
-# Production backends
+# Using IP addresses
 192.168.1.10:8080:5
 192.168.1.11:8080:5
 192.168.1.12:8080:2
 
-# Staging backend (lower weight)
-192.168.1.20:8080:1
+# Using domain names/URLs (recommended for production)
+api1.example.com:8080:5
+api2.example.com:8080:5
+api3.example.com:8080:2
+
+# Production with HTTPS
+api.production.com:443:3
+api2.production.com:443:2
+api3.production.com:443:1
+
+# Mixed (IPs + domains)
+192.168.1.10:8080:3
+api.example.com:8080:2
+192.168.1.12:8080:1
 ```
+
+**Note:** The load balancer supports both IP addresses and domain names. Domain names are resolved via DNS.
 
 A sample configuration file (`config.example`) is provided. Copy it to `config` and modify as needed:
 

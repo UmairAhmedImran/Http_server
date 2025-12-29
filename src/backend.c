@@ -8,6 +8,7 @@
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <netdb.h>
 #include <errno.h>
 #include <time.h>
 #include <pthread.h>
@@ -127,25 +128,46 @@ int forward_to_backend(struct Backend *backend, const char *request,
                backend->host, backend->port);
     log_message(LOG_DEBUG, "Request content (first 200 chars): %.200s", request);
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
+    struct addrinfo hints, *result, *rp;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", backend->port);
+
+    int ret = getaddrinfo(backend->host, port_str, &hints, &result);
+    if (ret != 0) {
         char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Failed to create socket for backend connection: %s (errno: %d)",
-                 strerror(errno), errno);
-        log_error("backend", "socket_creation_failed", err_msg);
+        snprintf(err_msg, sizeof(err_msg), "Failed to resolve backend address '%s': %s",
+                 backend->host, gai_strerror(ret));
+        log_error("backend", "dns_resolution_failed", err_msg);
         return -1;
     }
 
-    struct sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(backend->port);
-    
-    if (inet_pton(AF_INET, backend->host, &serv_addr.sin_addr) <= 0) {
-        char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Invalid backend address '%s': %s (errno: %d)",
-                 backend->host, strerror(errno), errno);
-        log_error("backend", "invalid_address", err_msg);
+    int sockfd = -1;
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sockfd < 0) {
+            continue;
+        }
+
+        if (connect(sockfd, rp->ai_addr, rp->ai_addrlen) == 0) {
+            break;
+        }
+
         close(sockfd);
+        sockfd = -1;
+    }
+
+    freeaddrinfo(result);
+
+    if (sockfd < 0) {
+        char err_msg[256];
+        snprintf(err_msg, sizeof(err_msg), "Failed to create socket or connect to backend '%s:%d': %s (errno: %d)",
+                 backend->host, backend->port, strerror(errno), errno);
+        log_error("backend", "socket_creation_failed", err_msg);
         return -1;
     }
 
@@ -155,18 +177,6 @@ int forward_to_backend(struct Backend *backend, const char *request,
 
     setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout));
     setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout));
-
-    if (connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr)) < 0) {
-        char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Failed to connect to backend server: %s (errno: %d)", 
-                 strerror(errno), errno);
-        log_error("backend", "connection_failed", err_msg);
-        close(sockfd);
-        backend->is_active = false;
-        log_message(LOG_WARNING, "Marked backend %s:%d as inactive due to connection failure", 
-                   backend->host, backend->port);
-        return -1;
-    }
 
     log_message(LOG_INFO, "Connected to backend %s:%d", backend->host, backend->port);
 
@@ -305,45 +315,62 @@ int health_check_backend(struct Backend *backend) {
         return 0;
     }
 
-    int sockfd = socket(AF_INET, SOCK_STREAM, 0);
-    if (sockfd < 0) {
-        char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Failed to create socket for health check: %s (errno: %d)",
-                 strerror(errno), errno);
-        log_error("health_check", "socket_creation_failed", err_msg);
+    struct addrinfo hints, *result, *rp;
+    memset(&hints, 0, sizeof(struct addrinfo));
+    hints.ai_family = AF_INET;
+    hints.ai_socktype = SOCK_STREAM;
+    hints.ai_protocol = IPPROTO_TCP;
+
+    char port_str[16];
+    snprintf(port_str, sizeof(port_str), "%d", backend->port);
+
+    int ret = getaddrinfo(backend->host, port_str, &hints, &result);
+    if (ret != 0) {
+        log_message(LOG_DEBUG, "Health check: Failed to resolve backend '%s': %s",
+                   backend->host, gai_strerror(ret));
         return 0;
     }
 
-    struct sockaddr_in serv_addr;
-    serv_addr.sin_family = AF_INET;
-    serv_addr.sin_port = htons(backend->port);
-    
-    if (inet_pton(AF_INET, backend->host, &serv_addr.sin_addr) <= 0) {
-        char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Invalid backend address '%s' for health check: %s (errno: %d)",
-                 backend->host, strerror(errno), errno);
-        log_error("health_check", "invalid_address", err_msg);
+    int sockfd = -1;
+    for (rp = result; rp != NULL; rp = rp->ai_next) {
+        sockfd = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+        if (sockfd < 0) {
+            continue;
+        }
+
+        struct timeval timeout;
+        timeout.tv_sec = 2;
+        timeout.tv_usec = 0;
+        if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
+            char err_msg[256];
+            snprintf(err_msg, sizeof(err_msg), "Failed to set receive timeout for health check: %s (errno: %d)",
+                     strerror(errno), errno);
+            log_error("health_check", "setsockopt_failed", err_msg);
+        }
+        if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
+            char err_msg[256];
+            snprintf(err_msg, sizeof(err_msg), "Failed to set send timeout for health check: %s (errno: %d)",
+                     strerror(errno), errno);
+            log_error("health_check", "setsockopt_failed", err_msg);
+        }
+
+        if (connect(sockfd, rp->ai_addr, rp->ai_addrlen) == 0) {
+            break;
+        }
+
         close(sockfd);
+        sockfd = -1;
+    }
+
+    freeaddrinfo(result);
+
+    if (sockfd < 0) {
+        log_message(LOG_DEBUG, "Health check failed for backend %s:%d (connection refused)", 
+                   backend->host, backend->port);
         return 0;
     }
 
-    struct timeval timeout;
-    timeout.tv_sec = 2;
-    timeout.tv_usec = 0;
-    if (setsockopt(sockfd, SOL_SOCKET, SO_RCVTIMEO, &timeout, sizeof(timeout)) < 0) {
-        char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Failed to set receive timeout for health check: %s (errno: %d)",
-                 strerror(errno), errno);
-        log_error("health_check", "setsockopt_failed", err_msg);
-    }
-    if (setsockopt(sockfd, SOL_SOCKET, SO_SNDTIMEO, &timeout, sizeof(timeout)) < 0) {
-        char err_msg[256];
-        snprintf(err_msg, sizeof(err_msg), "Failed to set send timeout for health check: %s (errno: %d)",
-                 strerror(errno), errno);
-        log_error("health_check", "setsockopt_failed", err_msg);
-    }
-
-    int result = connect(sockfd, (struct sockaddr *)&serv_addr, sizeof(serv_addr));
+    // Connection successful, close socket
     if (close(sockfd) < 0) {
         char err_msg[256];
         snprintf(err_msg, sizeof(err_msg), "Failed to close health check socket: %s (errno: %d)",
@@ -351,7 +378,7 @@ int health_check_backend(struct Backend *backend) {
         log_error("health_check", "close_failed", err_msg);
     }
 
-    return (result == 0) ? 1 : 0;
+    return 1;
 }
 
 void* health_check_thread(void* arg) {
